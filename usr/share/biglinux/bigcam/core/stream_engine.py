@@ -91,6 +91,12 @@ class StreamEngine(GObject.Object):
         self._last_probe_bgr = None
         self._overlay_rects: list[tuple] = []  # [(x,y,w,h), ...] for QR overlay
         self._video_recorder: Any = None  # set by window to enable phone recording
+        self._zoom_level: float = 1.0  # 1.0 = no zoom, 2.0 = 2x zoom
+        self._sharpness: float = 0.0  # 0.0 = off, positive = sharpen strength
+        self._backlight_comp: float = 0.0  # 0.0 = off, up to 1.0 = max compensation
+        self._pan: float = 0.0   # -1.0 to 1.0 (left/right offset ratio)
+        self._tilt: float = 0.0  # -1.0 to 1.0 (up/down offset ratio)
+
 
     @property
     def effects(self) -> EffectPipeline:
@@ -104,6 +110,26 @@ class StreamEngine(GObject.Object):
     def set_overlay_rects(self, rects: list[tuple]) -> None:
         """Set rectangles to draw on the video feed (e.g. QR bounding boxes)."""
         self._overlay_rects = rects
+
+    def set_zoom(self, level: float) -> None:
+        """Set digital zoom level (1.0 = no zoom, up to 4.0)."""
+        self._zoom_level = max(1.0, min(4.0, level))
+
+    def set_sharpness(self, level: float) -> None:
+        """Set software sharpness (0.0 = off, up to 1.0 = max)."""
+        self._sharpness = max(0.0, min(1.0, level))
+
+    def set_backlight_compensation(self, level: float) -> None:
+        """Set software backlight compensation (0.0 = off, up to 1.0 = max)."""
+        self._backlight_comp = max(0.0, min(1.0, level))
+
+    def set_pan(self, value: float) -> None:
+        """Set software pan offset (-1.0 left .. 1.0 right)."""
+        self._pan = max(-1.0, min(1.0, value))
+
+    def set_tilt(self, value: float) -> None:
+        """Set software tilt offset (-1.0 up .. 1.0 down)."""
+        self._tilt = max(-1.0, min(1.0, value))
 
     # -- public API ----------------------------------------------------------
 
@@ -159,6 +185,15 @@ class StreamEngine(GObject.Object):
     ) -> Gst.PadProbeReturn:
         """Buffer probe on tee sink — applies OpenCV effects via buffer replacement."""
         self._frame_count += 1
+
+        has_work = (self._effects.has_active_effects() or self._overlay_rects
+                    or self._zoom_level > 1.0 or self._sharpness > 0.0
+                    or self._backlight_comp > 0.0
+                    or self._pan != 0.0 or self._tilt != 0.0)
+        # Fast path: no effects/overlays — only grab BGR every 10th frame for photos
+        if not has_work and self._frame_count % 10 != 0:
+            return Gst.PadProbeReturn.OK
+
         buf = info.get_buffer()
         if buf is None:
             return Gst.PadProbeReturn.OK
@@ -201,18 +236,57 @@ class StreamEngine(GObject.Object):
             if bgr is not None:
                 needs_replace = (
                     self._effects.has_active_effects() or self._overlay_rects
+                    or self._zoom_level > 1.0 or self._sharpness > 0.0
+                    or self._backlight_comp > 0.0
+                    or self._pan != 0.0 or self._tilt != 0.0
                 )
                 if needs_replace:
                     # Single copy for processing; views become owned arrays
                     processed = bgr.copy()
                     if self._effects.has_active_effects():
                         processed = self._effects.apply(processed)
+                    # Digital zoom + pan/tilt: crop with offset and resize back
+                    if self._zoom_level > 1.0 or self._pan != 0.0 or self._tilt != 0.0:
+                        zh, zw = processed.shape[:2]
+                        # Auto-zoom when pan/tilt is active to create movement room
+                        zoom = self._zoom_level
+                        if (self._pan != 0.0 or self._tilt != 0.0) and zoom < 1.5:
+                            zoom = 1.5
+                        crop_h = int(zh / zoom)
+                        crop_w = int(zw / zoom)
+                        # Center crop with pan/tilt offset
+                        cx = zw // 2 + int(self._pan * (zw - crop_w) / 2)
+                        cy = zh // 2 + int(self._tilt * (zh - crop_h) / 2)
+                        # Clamp to valid bounds
+                        x0 = max(0, min(cx - crop_w // 2, zw - crop_w))
+                        y0 = max(0, min(cy - crop_h // 2, zh - crop_h))
+                        cropped = processed[y0:y0 + crop_h, x0:x0 + crop_w]
+                        processed = cv2.resize(cropped, (zw, zh), interpolation=cv2.INTER_LINEAR)
+                    # Software sharpness: unsharp mask
+                    if self._sharpness > 0.0:
+                        blurred = cv2.GaussianBlur(processed, (0, 0), 3)
+                        amount = self._sharpness * 2.0  # 0.0-2.0 strength
+                        processed = cv2.addWeighted(processed, 1.0 + amount, blurred, -amount, 0)
+                    # Software backlight compensation: CLAHE on luminance
+                    if self._backlight_comp > 0.0:
+                        lab = cv2.cvtColor(processed, cv2.COLOR_BGR2LAB)
+                        clip = 1.0 + self._backlight_comp * 3.0  # clipLimit 1.0-4.0
+                        clahe = cv2.createCLAHE(clipLimit=clip, tileGridSize=(8, 8))
+                        lab[:, :, 0] = clahe.apply(lab[:, :, 0])
+                        processed = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
                     if self._overlay_rects:
+                        # Darken area outside QR bounding box
+                        overlay = processed.copy()
+                        overlay[:] = (overlay * 0.4).astype(np.uint8)
                         for rect in self._overlay_rects:
                             x, y, rw, rh = rect
+                            # Restore bright area inside rect
+                            overlay[y:y+rh, x:x+rw] = processed[y:y+rh, x:x+rw]
+                            # Red border
                             cv2.rectangle(
-                                processed, (x, y), (x + rw, y + rh), (0, 255, 0), 3
+                                overlay, (x, y), (x + rw, y + rh), (0, 0, 255), 3
                             )
+                        processed = overlay
                     # Store for snapshot/photo (mirror applied for consistency with preview)
                     self._last_probe_bgr = (
                         cv2.flip(processed, 1) if self._mirror else processed
@@ -349,11 +423,16 @@ class StreamEngine(GObject.Object):
             self.emit("error", _("Failed to obtain GStreamer source for this camera."))
             return False
 
+        # Extract FPS from the format for rate limiting
+        target_fps = 0
+        if fmt and fmt.fps:
+            target_fps = int(max(fmt.fps))
+
         if self._use_appsink:
             return self._build_appsink_pipeline(gst_source)
-        return self._build_paintable_pipeline(gst_source)
+        return self._build_paintable_pipeline(gst_source, target_fps)
 
-    def _build_paintable_pipeline(self, gst_source: str) -> bool:
+    def _build_paintable_pipeline(self, gst_source: str, target_fps: int = 0) -> bool:
         """Direct camera sources — use tee + gtk4paintablesink (recording-ready).
 
         Automatically feeds the stream to a v4l2loopback virtual camera when
@@ -363,13 +442,18 @@ class StreamEngine(GObject.Object):
             card_label=self._current_camera.name if self._current_camera else None
         )
 
+        rate_limiter = ""
+        if target_fps > 0:
+            rate_limiter = f"videorate drop-only=true ! video/x-raw,framerate={target_fps}/1 ! "
+
         base_pipeline = (
             f"{gst_source} ! "
-            f"queue max-size-buffers=2 leaky=downstream silent=true ! "
+            f"queue max-size-buffers=5 leaky=downstream silent=true ! "
+            f"{rate_limiter}"
             f"videoconvert n-threads=2 name=conv ! "
             f"video/x-raw,format=BGRA ! "
             f"tee name=t ! "
-            f"queue max-size-buffers=2 leaky=downstream silent=true ! "
+            f"queue max-size-buffers=3 leaky=downstream silent=true ! "
             f"gtk4paintablesink sync=false"
         )
 
@@ -453,6 +537,7 @@ class StreamEngine(GObject.Object):
             probe_pad.add_probe(Gst.PadProbeType.BUFFER, self._on_paintable_probe)
         self._start_fps_counter()
         self.emit("state-changed", "playing")
+
         return True
 
     def _build_appsink_pipeline(self, gst_source: str) -> bool:

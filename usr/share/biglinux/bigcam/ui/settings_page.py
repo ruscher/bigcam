@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 
 import gi
 
@@ -55,6 +56,7 @@ class SettingsPage(Gtk.ScrolledWindow):
         self._qr_timer_id: int | None = None
         self._smile_timer_id: int | None = None
         self._smile_cooldown = False
+        self._smile_consecutive = 0
         self._last_qr_text = ""
         self._qr_scanning = False
         self._qr_detector = None
@@ -89,6 +91,7 @@ class SettingsPage(Gtk.ScrolledWindow):
             title=_("Photo directory"),
             subtitle=xdg.photos_dir(),
         )
+        photo_row.add_prefix(Gtk.Image.new_from_icon_name("folder-pictures-symbolic"))
         photo_open_btn = Gtk.Button.new_from_icon_name("folder-open-symbolic")
         photo_open_btn.set_valign(Gtk.Align.CENTER)
         photo_open_btn.set_tooltip_text(_("Open photos folder"))
@@ -105,6 +108,7 @@ class SettingsPage(Gtk.ScrolledWindow):
             title=_("Video directory"),
             subtitle=xdg.videos_dir(),
         )
+        video_row.add_prefix(Gtk.Image.new_from_icon_name("folder-videos-symbolic"))
         video_open_btn = Gtk.Button.new_from_icon_name("folder-open-symbolic")
         video_open_btn.set_valign(Gtk.Align.CENTER)
         video_open_btn.set_tooltip_text(_("Open videos folder"))
@@ -118,6 +122,7 @@ class SettingsPage(Gtk.ScrolledWindow):
 
         # Theme
         theme_row = Adw.ComboRow(title=_("Theme"))
+        theme_row.add_prefix(Gtk.Image.new_from_icon_name("preferences-desktop-appearance-symbolic"))
         theme_model = Gtk.StringList()
         for t in (_("System"), _("Light"), _("Dark")):
             theme_model.append(t)
@@ -136,6 +141,7 @@ class SettingsPage(Gtk.ScrolledWindow):
             title=_("USB hotplug detection"),
             subtitle=_("Automatically detect cameras when plugged or unplugged."),
         )
+        hotplug_row.add_prefix(Gtk.Image.new_from_icon_name("media-removable-symbolic"))
         hotplug_row.set_active(self._settings.get("hotplug_enabled"))
         hotplug_row.update_property(
             [Gtk.AccessibleProperty.LABEL], [_("USB hotplug detection")]
@@ -152,6 +158,7 @@ class SettingsPage(Gtk.ScrolledWindow):
             title=_("Mirror preview"),
             subtitle=_("Flip the preview horizontally like a mirror."),
         )
+        mirror_row.add_prefix(Gtk.Image.new_from_icon_name("object-flip-horizontal-symbolic"))
         mirror_row.set_active(self._settings.get("mirror_preview"))
         mirror_row.update_property(
             [Gtk.AccessibleProperty.LABEL], [_("Mirror preview")]
@@ -162,6 +169,7 @@ class SettingsPage(Gtk.ScrolledWindow):
         show_fps_row = Adw.SwitchRow(
             title=_("Show FPS counter"),
         )
+        show_fps_row.add_prefix(Gtk.Image.new_from_icon_name("preferences-system-symbolic"))
         show_fps_row.set_active(self._settings.get("show_fps"))
         show_fps_row.update_property(
             [Gtk.AccessibleProperty.LABEL], [_("Show FPS counter")]
@@ -173,6 +181,7 @@ class SettingsPage(Gtk.ScrolledWindow):
             title=_("Grid overlay"),
             subtitle=_("Show a rule-of-thirds grid over the preview."),
         )
+        grid_row.add_prefix(Gtk.Image.new_from_icon_name("view-grid-symbolic"))
         grid_row.set_active(self._settings.get("grid_overlay"))
         grid_row.connect("notify::active", self._on_grid_overlay)
         preview.add(grid_row)
@@ -182,16 +191,24 @@ class SettingsPage(Gtk.ScrolledWindow):
         # -- Camera group (resolution, FPS, timer) ---------------------------
         camera_group = Adw.PreferencesGroup(title=_("Camera"))
 
-        # Resolution
+        # Resolution — fixed tiers, filtered per-camera
         self._res_combo = Adw.ComboRow(title=_("Resolution"))
+        self._res_combo.add_prefix(Gtk.Image.new_from_icon_name("video-display-symbolic"))
+        self._all_res_tiers: list[tuple[str, str]] = [
+            ("", _("Auto")),
+            ("480", "480p"),
+            ("720", "720p (HD)"),
+            ("1080", "1080p (Full HD)"),
+            ("2160", "4K (UHD)"),
+        ]
+        self._res_values: list[str] = [v for v, _lbl in self._all_res_tiers]
         res_model = Gtk.StringList()
-        for label in (_("Auto"), "640×480", "1280×720", "1920×1080", "3840×2160"):
+        for _v, label in self._all_res_tiers:
             res_model.append(label)
         self._res_combo.set_model(res_model)
-        _RES_VALUES = ["", "480", "720", "1080", "2160"]
         current_res = self._settings.get("preferred-resolution")
         try:
-            self._res_combo.set_selected(_RES_VALUES.index(current_res))
+            self._res_combo.set_selected(self._res_values.index(current_res))
         except ValueError:
             self._res_combo.set_selected(0)
         self._res_combo.connect("notify::selected", self._on_resolution)
@@ -199,6 +216,7 @@ class SettingsPage(Gtk.ScrolledWindow):
 
         # FPS limit
         self._fps_combo = Adw.ComboRow(title=_("FPS limit"))
+        self._fps_combo.add_prefix(Gtk.Image.new_from_icon_name("media-playback-start-symbolic"))
         fps_model = Gtk.StringList()
         for label in (_("Auto"), "15", "24", "30", "60"):
             fps_model.append(label)
@@ -212,11 +230,13 @@ class SettingsPage(Gtk.ScrolledWindow):
         self._fps_combo.connect("notify::selected", self._on_fps_limit)
         camera_group.add(self._fps_combo)
 
+
         # Capture timer
         timer_row = Adw.ComboRow(
             title=_("Capture timer"),
             subtitle=_("Countdown before taking a photo."),
         )
+        timer_row.add_prefix(Gtk.Image.new_from_icon_name("timer-symbolic"))
         timer_model = Gtk.StringList()
         for label in (_("Off"), "3s", "5s", "10s"):
             timer_model.append(label)
@@ -248,6 +268,7 @@ class SettingsPage(Gtk.ScrolledWindow):
             title=_("Scan QR Codes"),
             subtitle=_("Detect QR codes in the camera feed"),
         )
+        self._qr_row.add_prefix(Gtk.Image.new_from_icon_name("camera-photo-symbolic"))
         self._qr_row.connect("notify::active", self._on_qr_toggled)
         qr_group.add(self._qr_row)
         content.append(qr_group)
@@ -258,14 +279,16 @@ class SettingsPage(Gtk.ScrolledWindow):
             title=_("Capture on Smile"),
             subtitle=_("Automatically take a photo when a smile is detected"),
         )
+        self._smile_row.add_prefix(Gtk.Image.new_from_icon_name("face-smile-symbolic"))
         self._smile_row.connect("notify::active", self._on_smile_toggled)
         smile_group.add(self._smile_row)
 
         self._sensitivity_row = Adw.ActionRow(title=_("Sensitivity"))
+        self._sensitivity_row.add_prefix(Gtk.Image.new_from_icon_name("preferences-other-symbolic"))
         self._sensitivity_scale = Gtk.Scale.new_with_range(
-            Gtk.Orientation.HORIZONTAL, 10, 50, 5
+            Gtk.Orientation.HORIZONTAL, 1, 10, 1
         )
-        self._sensitivity_scale.set_value(25)
+        self._sensitivity_scale.set_value(5)
         self._sensitivity_scale.set_hexpand(True)
         self._sensitivity_scale.set_valign(Gtk.Align.CENTER)
         self._sensitivity_row.add_suffix(self._sensitivity_scale)
@@ -292,12 +315,14 @@ class SettingsPage(Gtk.ScrolledWindow):
             title=_("Device"),
             subtitle=_("Not loaded"),
         )
+        self._vc_device_row.add_prefix(Gtk.Image.new_from_icon_name("video-display-symbolic"))
         vc_group.add(self._vc_device_row)
 
         self._vc_toggle_row = Adw.SwitchRow(
             title=_("Enable virtual camera"),
             subtitle=_("Create a virtual camera output for video calls and streaming."),
         )
+        self._vc_toggle_row.add_prefix(Gtk.Image.new_from_icon_name("camera-web-symbolic"))
         self._vc_toggle_row.connect("notify::active", self._on_vc_toggle)
         vc_group.add(self._vc_toggle_row)
 
@@ -329,15 +354,47 @@ class SettingsPage(Gtk.ScrolledWindow):
         self._settings.set("show_fps", active)
         self.emit("show-fps-changed", active)
 
+
     def _on_hotplug(self, row: Adw.SwitchRow, _pspec) -> None:
         self._settings.set("hotplug_enabled", row.get_active())
 
     def _on_resolution(self, row: Adw.ComboRow, _pspec) -> None:
-        _RES_VALUES = ["", "480", "720", "1080", "2160"]
+        if getattr(self, '_updating_formats', False):
+            return
         idx = row.get_selected()
-        value = _RES_VALUES[idx] if idx < len(_RES_VALUES) else ""
+        value = self._res_values[idx] if idx < len(self._res_values) else ""
         self._settings.set("preferred-resolution", value)
         self.emit("resolution-changed", value)
+
+    def update_camera_formats(self, camera) -> None:
+        """Filter resolution tiers based on camera's actual max height."""
+        max_h = 0
+        if hasattr(camera, "formats"):
+            for fmt in camera.formats:
+                if fmt.height > max_h:
+                    max_h = fmt.height
+
+        if max_h == 0:
+            return
+
+        self._updating_formats = True
+        filtered: list[tuple[str, str]] = []
+        for value, label in self._all_res_tiers:
+            if not value or int(value) <= max_h:
+                filtered.append((value, label))
+
+        self._res_values = [v for v, _lbl in filtered]
+        model = Gtk.StringList()
+        for _v, label in filtered:
+            model.append(label)
+        self._res_combo.set_model(model)
+
+        current_res = self._settings.get("preferred-resolution")
+        try:
+            self._res_combo.set_selected(self._res_values.index(current_res))
+        except ValueError:
+            self._res_combo.set_selected(0)
+        self._updating_formats = False
 
     def _on_fps_limit(self, row: Adw.ComboRow, _pspec) -> None:
         _FPS_VALUES = [0, 15, 24, 30, 60]
@@ -370,7 +427,7 @@ class SettingsPage(Gtk.ScrolledWindow):
         self._qr_active = row.get_active()
         if self._qr_active:
             self._init_qr_detector()
-            self._qr_timer_id = GLib.timeout_add(300, self._scan_qr)
+            self._qr_timer_id = GLib.timeout_add(150, self._scan_qr)
         else:
             if self._qr_timer_id:
                 GLib.source_remove(self._qr_timer_id)
@@ -393,7 +450,7 @@ class SettingsPage(Gtk.ScrolledWindow):
                 pts = pts_list[0] if pts_list and len(pts_list) > 0 else None
                 return results[0], pts
         elif self._qr_detector is not None:
-            data, pts, _ = self._qr_detector.detectAndDecode(img)
+            data, pts, _straight = self._qr_detector.detectAndDecode(img)
             if data:
                 p = pts[0] if pts is not None and pts.ndim == 3 else pts
                 return data, p
@@ -418,10 +475,28 @@ class SettingsPage(Gtk.ScrolledWindow):
     def _scan_qr_worker(self, frame) -> None:
         try:
             data, points = self._try_detect_qr(frame)
+
+            # Upscale small frames for better detection
+            if not data:
+                h, w = frame.shape[:2]
+                if max(h, w) < 1000:
+                    upscaled = cv2.resize(frame, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+                    data, points = self._try_detect_qr(upscaled)
+                    if points is not None:
+                        points = points / 2
+
             if not data:
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 eq = cv2.equalizeHist(gray)
                 data, points = self._try_detect_qr(eq)
+
+            # CLAHE for better contrast
+            if not data:
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+                enhanced = clahe.apply(gray)
+                data, points = self._try_detect_qr(enhanced)
+
             if not data:
                 sharp_k = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
                 data, points = self._try_detect_qr(cv2.filter2D(frame, -1, sharp_k))
@@ -460,8 +535,14 @@ class SettingsPage(Gtk.ScrolledWindow):
             root = self.get_root()
             if root:
                 dialog.set_transient_for(root)
+            dialog.connect("close-request", self._on_qr_dialog_closed)
             dialog.present()
         return False
+
+    def _on_qr_dialog_closed(self, dialog) -> bool:
+        self._last_qr_text = ""
+        dialog.destroy()
+        return True
 
     # -- Smile handlers ------------------------------------------------------
 
@@ -477,6 +558,7 @@ class SettingsPage(Gtk.ScrolledWindow):
                     os.path.join(_HAARCASCADES, "haarcascade_smile.xml")
                 )
             self._smile_cooldown = False
+            self._smile_consecutive = 0
             self._smile_status.set_text(_("Watching for smiles..."))
             self._smile_timer_id = GLib.timeout_add(300, self._detect_smile)
         else:
@@ -499,20 +581,33 @@ class SettingsPage(Gtk.ScrolledWindow):
                 gray, scaleFactor=1.3, minNeighbors=5, minSize=(80, 80)
             )
             if len(faces) == 0:
+                self._smile_consecutive = 0
                 return True
             sensitivity = int(self._sensitivity_scale.get_value())
+            # Invert: high slider = low minNeighbors = more sensitive
+            min_neighbors = max(10, 55 - sensitivity * 5)
+            smile_found = False
             for x, y, fw, fh in faces:
                 roi_gray = gray[y : y + fh, x : x + fw]
                 lower_half = roi_gray[fh // 2 :, :]
+                min_w = max(30, fw // 5)
+                min_h = max(20, fh // 10)
                 smiles = self._smile_cascade.detectMultiScale(
                     lower_half,
-                    scaleFactor=1.7,
-                    minNeighbors=sensitivity,
-                    minSize=(25, 15),
+                    scaleFactor=1.5,
+                    minNeighbors=min_neighbors,
+                    minSize=(min_w, min_h),
                 )
                 if len(smiles) > 0:
+                    smile_found = True
+                    break
+            if smile_found:
+                self._smile_consecutive += 1
+                if self._smile_consecutive >= 3:
+                    self._smile_consecutive = 0
                     GLib.idle_add(self._trigger_smile_capture)
-                    return True
+            else:
+                self._smile_consecutive = 0
         except Exception:
             pass
         return True

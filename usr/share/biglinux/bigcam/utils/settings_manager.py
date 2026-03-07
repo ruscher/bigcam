@@ -25,7 +25,7 @@ _DEFAULTS: dict[str, object] = {
     # Photo
     "photo-directory": "",
     "photo-format": "jpg",
-    "photo-name-pattern": "foto_{datetime}",
+    "photo-name-pattern": "photo_{datetime}",
     # GPhoto2
     "gphoto2-bitrate": 5000,
     # General

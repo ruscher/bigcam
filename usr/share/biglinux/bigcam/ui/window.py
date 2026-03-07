@@ -167,7 +167,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._view_stack.set_vexpand(True)
 
         # Controls page
-        self._controls_page = CameraControlsPage(self._camera_manager)
+        self._controls_page = CameraControlsPage(self._camera_manager, self._stream_engine)
         self._view_stack.add_titled_with_icon(
             self._controls_page,
             "controls",
@@ -214,7 +214,6 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._settings_page.connect(
             "grid-overlay-changed", self._on_grid_overlay_changed
         )
-
         # Restore virtual camera enabled state from settings
         if self._settings.get("virtual-camera-enabled"):
             VirtualCamera.set_enabled(True)
@@ -485,6 +484,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
             # Start the V4L2 camera immediately
             self._controls_page.set_camera(camera)
+            self._settings_page.update_camera_formats(camera)
             preferred_fmt = self._pick_preferred_format(camera)
             self._stream_engine.play(camera, fmt=preferred_fmt)
 
@@ -514,13 +514,14 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
     def _on_resolution_changed(self, _page, value: str) -> None:
         if self._active_camera:
-            self._stream_engine.stop()
-            self._on_camera_selected(self._camera_selector, self._active_camera)
+            log.info("Resolution changed to '%s', restarting stream", value)
+            preferred_fmt = self._pick_preferred_format(self._active_camera)
+            self._stream_engine.play(self._active_camera, fmt=preferred_fmt)
 
     def _on_fps_limit_changed(self, _page, value: int) -> None:
         if self._active_camera:
-            self._stream_engine.stop()
-            self._on_camera_selected(self._camera_selector, self._active_camera)
+            preferred_fmt = self._pick_preferred_format(self._active_camera)
+            self._stream_engine.play(self._active_camera, fmt=preferred_fmt)
 
     def _on_grid_overlay_changed(self, _page, visible: bool) -> None:
         self._preview.set_grid_visible(visible)

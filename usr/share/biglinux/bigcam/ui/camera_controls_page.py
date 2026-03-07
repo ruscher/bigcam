@@ -41,12 +41,13 @@ _CATEGORY_ICONS = {
 class CameraControlsPage(Gtk.ScrolledWindow):
     """Dynamically-populated sidebar with all controls of the active camera."""
 
-    def __init__(self, camera_manager: CameraManager) -> None:
+    def __init__(self, camera_manager: CameraManager, stream_engine=None) -> None:
         super().__init__(
             hscrollbar_policy=Gtk.PolicyType.NEVER,
             vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
         )
         self._manager = camera_manager
+        self._engine = stream_engine
         self._camera: CameraInfo | None = None
         self._controls: list[CameraControl] = []
         self._debounce_sources: dict[str, int] = {}
@@ -205,11 +206,13 @@ class CameraControlsPage(Gtk.ScrolledWindow):
             row.set_model(model)
             row.set_sensitive(not readonly)
             row.update_property([Gtk.AccessibleProperty.LABEL], [ctrl.name])
-            # Select current (value is a numeric v4l2 index)
-            if isinstance(ctrl.value, int) and ctrl.choices:
-                idx = ctrl.value - (ctrl.minimum or 0)
-                if 0 <= idx < len(ctrl.choices):
-                    row.set_selected(idx)
+            # Select current using actual V4L2 indices
+            if isinstance(ctrl.value, int) and ctrl.choice_values:
+                try:
+                    sel = ctrl.choice_values.index(ctrl.value)
+                    row.set_selected(sel)
+                except ValueError:
+                    pass
             if not readonly:
                 row.connect("notify::selected", self._on_combo, ctrl)
             self._ctrl_widgets[ctrl.id] = ("menu", row)
@@ -241,9 +244,9 @@ class CameraControlsPage(Gtk.ScrolledWindow):
                 ],
                 [
                     ctrl.name,
-                    str(int(adj.get_value())),
-                    str(int(adj.get_lower())),
-                    str(int(adj.get_upper())),
+                    float(adj.get_value()),
+                    float(adj.get_lower()),
+                    float(adj.get_upper()),
                 ],
             )
             scale.set_sensitive(not readonly)
@@ -285,8 +288,9 @@ class CameraControlsPage(Gtk.ScrolledWindow):
         if self._resetting:
             return
         idx = row.get_selected()
-        choices = ctrl.choices or []
-        if 0 <= idx < len(choices):
+        if ctrl.choice_values and 0 <= idx < len(ctrl.choice_values):
+            self._apply(ctrl, ctrl.choice_values[idx])
+        elif ctrl.choices and 0 <= idx < len(ctrl.choices):
             self._apply(ctrl, idx + (ctrl.minimum or 0))
 
     def _on_scale_debounced(self, adj: Gtk.Adjustment, ctrl: CameraControl) -> None:
@@ -307,6 +311,41 @@ class CameraControlsPage(Gtk.ScrolledWindow):
     def _apply(self, ctrl: CameraControl, value: Any) -> None:
         if self._camera:
             self._manager.set_control(self._camera, ctrl.id, value)
+            # Apply software zoom as fallback for cameras where V4L2 zoom is ineffective
+            if ctrl.id == "zoom_absolute" and self._engine is not None:
+                v4l_min = ctrl.minimum or 0
+                v4l_max = ctrl.maximum or 10
+                rng = max(v4l_max - v4l_min, 1)
+                level = 1.0 + (int(value) - v4l_min) / rng * 3.0  # 1x-4x
+                self._engine.set_zoom(level)
+            # Apply software sharpness as fallback
+            if ctrl.id == "sharpness" and self._engine is not None:
+                v4l_min = ctrl.minimum or 0
+                v4l_max = ctrl.maximum or 50
+                rng = max(v4l_max - v4l_min, 1)
+                level = (int(value) - v4l_min) / rng  # 0.0-1.0
+                self._engine.set_sharpness(level)
+            # Apply software backlight compensation as fallback
+            if ctrl.id == "backlight_compensation" and self._engine is not None:
+                v4l_min = ctrl.minimum or 0
+                v4l_max = ctrl.maximum or 10
+                rng = max(v4l_max - v4l_min, 1)
+                level = (int(value) - v4l_min) / rng  # 0.0-1.0
+                self._engine.set_backlight_compensation(level)
+            # Apply software pan as fallback
+            if ctrl.id == "pan_absolute" and self._engine is not None:
+                v4l_min = ctrl.minimum or -201600
+                v4l_max = ctrl.maximum or 201600
+                rng = max(v4l_max - v4l_min, 1)
+                level = ((int(value) - v4l_min) / rng) * 2.0 - 1.0  # -1.0 to 1.0
+                self._engine.set_pan(level)
+            # Apply software tilt as fallback
+            if ctrl.id == "tilt_absolute" and self._engine is not None:
+                v4l_min = ctrl.minimum or -201600
+                v4l_max = ctrl.maximum or 201600
+                rng = max(v4l_max - v4l_min, 1)
+                level = ((int(value) - v4l_min) / rng) * 2.0 - 1.0  # -1.0 to 1.0
+                self._engine.set_tilt(level)
 
     def _on_entry_apply(self, row: Adw.EntryRow, ctrl: CameraControl) -> None:
         self._apply(ctrl, row.get_text())
@@ -345,4 +384,19 @@ class CameraControlsPage(Gtk.ScrolledWindow):
                             widget.set_selected(idx)
                 elif kind == "int":
                     widget.set_value(float(ctrl.default or 0))
+                # Reset software zoom if zoom control is reset
+                if ctrl.id == "zoom_absolute" and self._engine is not None:
+                    self._engine.set_zoom(1.0)
+                # Reset software sharpness if sharpness control is reset
+                if ctrl.id == "sharpness" and self._engine is not None:
+                    self._engine.set_sharpness(0.0)
+                # Reset software backlight compensation if control is reset
+                if ctrl.id == "backlight_compensation" and self._engine is not None:
+                    self._engine.set_backlight_compensation(0.0)
+                # Reset software pan if control is reset
+                if ctrl.id == "pan_absolute" and self._engine is not None:
+                    self._engine.set_pan(0.0)
+                # Reset software tilt if control is reset
+                if ctrl.id == "tilt_absolute" and self._engine is not None:
+                    self._engine.set_tilt(0.0)
             self._resetting = False

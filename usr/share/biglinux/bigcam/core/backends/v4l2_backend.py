@@ -28,6 +28,7 @@ _CONTROL_LABELS: dict[str, str] = {
     "gain": _("Gain"),
     "exposure_auto": _("Auto Exposure"),
     "exposure_absolute": _("Exposure Time"),
+    "exposure_time_absolute": _("Exposure Time"),
     "exposure_auto_priority": _("Exposure Auto Priority"),
     "focus_auto": _("Auto Focus"),
     "focus_absolute": _("Focus Distance"),
@@ -47,13 +48,22 @@ _CONTROL_LABELS: dict[str, str] = {
     "led1_frequency": _("LED Frequency"),
 }
 
+# Controls hidden from the UI (too technical for end-users)
+_HIDDEN_CONTROLS: set[str] = {
+    "region_of_interest_auto",
+    "region_of_interest_area_left",
+    "region_of_interest_area_top",
+    "region_of_interest_area_right",
+    "region_of_interest_area_bottom",
+}
+
 _CATEGORY_MAP: dict[str, ControlCategory] = {
     "brightness": ControlCategory.IMAGE,
     "contrast": ControlCategory.IMAGE,
     "saturation": ControlCategory.IMAGE,
     "hue": ControlCategory.IMAGE,
     "sharpness": ControlCategory.IMAGE,
-    "gamma": ControlCategory.ADVANCED,
+    "gamma": ControlCategory.IMAGE,
     "white_balance_automatic": ControlCategory.WHITE_BALANCE,
     "white_balance_temperature": ControlCategory.WHITE_BALANCE,
     "white_balance_auto_preset": ControlCategory.WHITE_BALANCE,
@@ -252,7 +262,7 @@ class V4L2Backend(CameraBackend):
 
     def _parse_controls(self, output: str) -> list[CameraControl]:
         controls: list[CameraControl] = []
-        menu_items: dict[str, list[str]] = {}
+        menu_items: dict[str, list[tuple[int, str]]] = {}
         last_ctrl_id = ""
 
         for line in output.splitlines():
@@ -265,6 +275,9 @@ class V4L2Backend(CameraBackend):
                 ctrl_type_str = ctrl_match.group(2)
                 params_str = ctrl_match.group(3)
                 last_ctrl_id = ctrl_id
+
+                if ctrl_id in _HIDDEN_CONTROLS:
+                    continue
 
                 params = self._parse_ctrl_params(params_str)
                 category = _CATEGORY_MAP.get(ctrl_id, ControlCategory.ADVANCED)
@@ -300,13 +313,15 @@ class V4L2Backend(CameraBackend):
             menu_match = re.match(r"\s+(\d+):\s+(.+)", line)
             if menu_match and last_ctrl_id:
                 menu_items.setdefault(last_ctrl_id, []).append(
-                    menu_match.group(2).strip()
+                    (int(menu_match.group(1)), menu_match.group(2).strip())
                 )
 
-        # Attach menu choices
+        # Attach menu choices with their actual V4L2 indices
         for ctrl in controls:
             if ctrl.control_type == ControlType.MENU and ctrl.id in menu_items:
-                ctrl.choices = menu_items[ctrl.id]
+                items = menu_items[ctrl.id]
+                ctrl.choices = [label for _, label in items]
+                ctrl.choice_values = [idx for idx, _ in items]
 
         return controls
 

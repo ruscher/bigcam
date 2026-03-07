@@ -130,7 +130,7 @@ class ToolsPage(Gtk.ScrolledWindow):
         log.debug(f"QR toggle: active={self._qr_active}")
         if self._qr_active:
             self._init_qr_detector()
-            self._qr_timer_id = GLib.timeout_add(300, self._scan_qr)
+            self._qr_timer_id = GLib.timeout_add(150, self._scan_qr)
         else:
             if self._qr_timer_id:
                 GLib.source_remove(self._qr_timer_id)
@@ -186,17 +186,35 @@ class ToolsPage(Gtk.ScrolledWindow):
             data, points = self._try_detect_qr(frame)
             log.debug(f"QR worker: original result='{data[:30] if data else ''}'")
 
-            # If not found, try enhanced variants for low-quality cameras
+            # Try upscaled for small QR codes
+            if not data:
+                h, w = frame.shape[:2]
+                if max(h, w) < 1000:
+                    upscaled = cv2.resize(frame, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+                    data, points = self._try_detect_qr(upscaled)
+                    if points is not None:
+                        points = points / 2  # Scale points back
+
+            # Histogram equalization
             if not data:
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 eq = cv2.equalizeHist(gray)
                 data, points = self._try_detect_qr(eq)
 
+            # CLAHE for better contrast
+            if not data:
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+                enhanced = clahe.apply(gray)
+                data, points = self._try_detect_qr(enhanced)
+
+            # Sharpening
             if not data:
                 sharp_k = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
                 sharpened = cv2.filter2D(frame, -1, sharp_k)
                 data, points = self._try_detect_qr(sharpened)
 
+            # Adaptive threshold
             if not data:
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 thresh = cv2.adaptiveThreshold(
@@ -242,8 +260,15 @@ class ToolsPage(Gtk.ScrolledWindow):
         root = self.get_root()
         if root:
             dialog.set_transient_for(root)
+        dialog.connect("close-request", self._on_qr_dialog_closed)
         dialog.present()
         return False
+
+    def _on_qr_dialog_closed(self, dialog) -> bool:
+        self._last_qr_text = ""
+        log.debug("QR dialog closed, ready to rescan")
+        dialog.destroy()
+        return True  # We handle close ourselves via destroy
 
     # --- Smile Capture ---
 

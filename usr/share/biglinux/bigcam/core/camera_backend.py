@@ -21,6 +21,7 @@ class CameraControl:
     maximum: int | None = None
     step: int = 1
     choices: list[str] | None = None
+    choice_values: list[int] | None = None
     flags: str = ""
 
 

@@ -9,6 +9,8 @@ from typing import Any
 
 import numpy as np
 
+from utils.i18n import _
+
 log = logging.getLogger(__name__)
 
 try:
@@ -315,12 +317,12 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="brightness",
-                name="Brightness / Contrast",
+                name=_("Brightness / Contrast"),
                 icon="display-brightness-symbolic",
                 category=EffectCategory.ADJUST,
                 params=[
-                    EffectParam("brightness", "Brightness", -100, 100, 0, 1),
-                    EffectParam("contrast", "Contrast", -100, 100, 0, 1),
+                    EffectParam("brightness", _("Brightness"), -100, 100, 0, 1),
+                    EffectParam("contrast", _("Contrast"), -100, 100, 0, 1),
                 ],
             ),
             _apply_brightness,
@@ -328,11 +330,11 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="gamma",
-                name="Gamma Correction",
+                name=_("Gamma Correction"),
                 icon="preferences-color-symbolic",
                 category=EffectCategory.ADJUST,
                 params=[
-                    EffectParam("gamma", "Gamma", 0.1, 5.0, 1.0, 0.1),
+                    EffectParam("gamma", _("Gamma"), 0.1, 5.0, 1.0, 0.1),
                 ],
             ),
             _apply_gamma,
@@ -340,12 +342,12 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="clahe",
-                name="CLAHE (Adaptive Contrast)",
+                name=_("CLAHE (Adaptive Contrast)"),
                 icon="image-adjust-contrast",
                 category=EffectCategory.ADJUST,
                 params=[
-                    EffectParam("clip_limit", "Clip Limit", 1.0, 10.0, 2.0, 0.5),
-                    EffectParam("grid_size", "Grid Size", 2, 16, 8, 1),
+                    EffectParam("clip_limit", _("Clip Limit"), 0.5, 4.0, 1.0, 0.1),
+                    EffectParam("grid_size", _("Grid Size"), 2, 16, 8, 1),
                 ],
             ),
             _apply_clahe,
@@ -353,7 +355,7 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="white_balance",
-                name="Auto White Balance",
+                name=_("Auto White Balance"),
                 icon="weather-clear-symbolic",
                 category=EffectCategory.ADJUST,
             ),
@@ -363,12 +365,12 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="detail_enhance",
-                name="Detail Enhance",
+                name=_("Detail Enhance"),
                 icon="find-location-symbolic",
                 category=EffectCategory.FILTER,
                 params=[
-                    EffectParam("sigma_s", "Smoothing", 1, 200, 10, 5),
-                    EffectParam("sigma_r", "Detail", 0.0, 1.0, 0.15, 0.05),
+                    EffectParam("sigma_s", _("Smoothing"), 1, 200, 10, 5),
+                    EffectParam("sigma_r", _("Detail"), 0.0, 1.0, 0.15, 0.05),
                 ],
             ),
             _apply_detail_enhance,
@@ -376,12 +378,12 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="beauty",
-                name="Beauty / Soft Skin",
+                name=_("Beauty / Soft Skin"),
                 icon="face-smile-symbolic",
                 category=EffectCategory.FILTER,
                 params=[
-                    EffectParam("sigma_s", "Smoothing", 1, 200, 60, 10),
-                    EffectParam("sigma_r", "Intensity", 0.0, 1.0, 0.4, 0.05),
+                    EffectParam("sigma_s", _("Smoothing"), 1, 200, 60, 10),
+                    EffectParam("sigma_r", _("Intensity"), 0.0, 1.0, 0.4, 0.05),
                 ],
             ),
             _apply_beauty,
@@ -389,11 +391,11 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="sharpen",
-                name="Sharpen",
+                name=_("Sharpen"),
                 icon="image-sharpen-symbolic",
                 category=EffectCategory.FILTER,
                 params=[
-                    EffectParam("strength", "Strength", 0.0, 3.0, 0.5, 0.1),
+                    EffectParam("strength", _("Strength"), 0.0, 3.0, 0.5, 0.1),
                 ],
             ),
             _apply_sharpen,
@@ -401,11 +403,11 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="denoise",
-                name="Denoise",
+                name=_("Denoise"),
                 icon="audio-volume-muted-symbolic",
                 category=EffectCategory.FILTER,
                 params=[
-                    EffectParam("strength", "Strength", 1, 30, 10, 1),
+                    EffectParam("strength", _("Strength"), 1, 30, 10, 1),
                 ],
             ),
             _apply_denoise,
@@ -414,7 +416,7 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="grayscale",
-                name="Grayscale",
+                name=_("Grayscale"),
                 icon="bwtonal",
                 category=EffectCategory.ARTISTIC,
             ),
@@ -423,7 +425,7 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="sepia",
-                name="Sepia",
+                name=_("Sepia"),
                 icon="accessories-text-editor-symbolic",
                 category=EffectCategory.ARTISTIC,
             ),
@@ -432,7 +434,7 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="negative",
-                name="Negative",
+                name=_("Negative"),
                 icon="view-refresh-symbolic",
                 category=EffectCategory.ARTISTIC,
             ),
@@ -441,13 +443,13 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="pencil_sketch",
-                name="Pencil Sketch",
+                name=_("Pencil Sketch"),
                 icon="edit-select-symbolic",
                 category=EffectCategory.ARTISTIC,
                 params=[
-                    EffectParam("sigma_s", "Smoothing", 1, 200, 60, 10),
-                    EffectParam("sigma_r", "Detail", 0.0, 1.0, 0.07, 0.01),
-                    EffectParam("shade_factor", "Shade", 0.0, 0.1, 0.05, 0.01),
+                    EffectParam("sigma_s", _("Smoothing"), 1, 200, 60, 10),
+                    EffectParam("sigma_r", _("Detail"), 0.0, 1.0, 0.07, 0.01),
+                    EffectParam("shade_factor", _("Shade"), 0.0, 0.1, 0.05, 0.01),
                 ],
             ),
             _apply_pencil_sketch,
@@ -455,34 +457,26 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="stylization",
-                name="Painting",
+                name=_("Painting"),
                 icon="applications-graphics-symbolic",
                 category=EffectCategory.ARTISTIC,
                 params=[
-                    EffectParam("sigma_s", "Smoothing", 1, 200, 60, 10),
-                    EffectParam("sigma_r", "Detail", 0.0, 1.0, 0.45, 0.05),
+                    EffectParam("sigma_s", _("Smoothing"), 1, 200, 60, 10),
+                    EffectParam("sigma_r", _("Detail"), 0.0, 1.0, 0.45, 0.05),
                 ],
             ),
             _apply_stylization,
         ),
-        (
-            EffectInfo(
-                effect_id="cartoon",
-                name="Cartoon",
-                icon="face-laugh-symbolic",
-                category=EffectCategory.ARTISTIC,
-            ),
-            _apply_cartoon,
-        ),
+
         (
             EffectInfo(
                 effect_id="edge_detect",
-                name="Edge Detection",
+                name=_("Edge Detection"),
                 icon="emblem-photos-symbolic",
                 category=EffectCategory.ARTISTIC,
                 params=[
-                    EffectParam("threshold1", "Threshold 1", 0, 500, 100, 10),
-                    EffectParam("threshold2", "Threshold 2", 0, 500, 200, 10),
+                    EffectParam("threshold1", _("Threshold 1"), 0, 500, 100, 10),
+                    EffectParam("threshold2", _("Threshold 2"), 0, 500, 200, 10),
                 ],
             ),
             _apply_edge_detect,
@@ -490,11 +484,11 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="colormap",
-                name="Color Map",
+                name=_("Color Map"),
                 icon="preferences-color-symbolic",
                 category=EffectCategory.ARTISTIC,
                 params=[
-                    EffectParam("style", "Style", 0, 21, 0, 1),
+                    EffectParam("style", _("Style"), 0, 21, 0, 1),
                 ],
             ),
             _apply_colormap,
@@ -502,28 +496,16 @@ def _register_effects() -> None:
         (
             EffectInfo(
                 effect_id="vignette",
-                name="Vignette",
+                name=_("Vignette"),
                 icon="camera-photo-symbolic",
                 category=EffectCategory.ARTISTIC,
                 params=[
-                    EffectParam("strength", "Strength", 0.0, 1.0, 0.5, 0.05),
+                    EffectParam("strength", _("Strength"), 0.0, 1.0, 0.5, 0.05),
                 ],
             ),
             _apply_vignette,
         ),
-        # ── Advanced ──
-        (
-            EffectInfo(
-                effect_id="bg_blur",
-                name="Background Blur",
-                icon="camera-web-symbolic",
-                category=EffectCategory.ADVANCED,
-                params=[
-                    EffectParam("strength", "Blur Strength", 1, 51, 21, 2),
-                ],
-            ),
-            _apply_bg_blur,
-        ),
+
     ]
 
 

@@ -115,12 +115,36 @@ class VideoRecorder:
             # 3. Start muxing pipeline
             ret = self._mux_pipeline.set_state(Gst.State.PLAYING)
             if ret == Gst.StateChangeReturn.FAILURE:
-                log.error("Failed to start muxing pipeline")
+                # Check bus for error details
+                bus = self._mux_pipeline.get_bus()
+                if bus:
+                    msg = bus.pop_filtered(Gst.MessageType.ERROR)
+                    if msg:
+                        err, dbg = msg.parse_error()
+                        log.warning("Mux pipeline error: %s (debug: %s)", err.message, dbg)
+                log.warning("Failed to start muxing pipeline")
                 self._destroy_mux_pipeline()
+                if record_audio:
+                    log.warning("Retrying mux pipeline without audio")
+                    if self._create_mux_pipeline(record_audio=False):
+                        ret = self._mux_pipeline.set_state(Gst.State.PLAYING)
+                        if ret != Gst.StateChangeReturn.FAILURE:
+                            self._recording = True
+                            log.info("Recording started (no audio): %s", self._output_path)
+                            return self._output_path
+                        # Log error from no-audio attempt
+                        bus = self._mux_pipeline.get_bus()
+                        if bus:
+                            msg = bus.pop_filtered(Gst.MessageType.ERROR)
+                            if msg:
+                                err, dbg = msg.parse_error()
+                                log.warning("No-audio mux error: %s", err.message)
+                    self._destroy_mux_pipeline()
                 self._teardown_encoder_branch()
                 return None
 
             self._recording = True
+            self._sample_count = 0
             log.info("Recording started: %s", self._output_path)
             return self._output_path
         except Exception as exc:
@@ -250,14 +274,16 @@ class VideoRecorder:
         if record_audio:
             audio_branch = "pulsesrc ! queue max-size-time=3000000000 ! audioconvert ! opusenc ! mux. "
 
+        escaped = self._output_path.replace('"', '\\"')
         pipeline_str = (
-            "appsrc name=videosrc format=time is-live=true do-timestamp=false ! "
+            "appsrc name=videosrc format=time is-live=true do-timestamp=true "
+            "caps=video/x-h264,stream-format=byte-stream,alignment=au ! "
             "queue max-size-buffers=60 max-size-time=0 max-size-bytes=0 ! "
             "h264parse ! "
             "mux. "
             f"{audio_branch}"
-            f"matroskamux name=mux streamable=true ! "
-            f"filesink location={GLib.shell_quote(self._output_path)}"
+            f'matroskamux name=mux streamable=true ! '
+            f'filesink location="{escaped}"'
         )
 
         try:
@@ -283,17 +309,34 @@ class VideoRecorder:
 
         return True
 
+    _sample_count = 0
+
     def _on_encoded_sample(self, appsink: Gst.Element) -> Gst.FlowReturn:
         """Forward encoded h264 sample from preview appsink to mux appsrc."""
-        if not self._recording or not self._mux_appsrc:
-            return Gst.FlowReturn.OK
-
         sample = appsink.emit("pull-sample")
         if sample is None:
             return Gst.FlowReturn.OK
 
+        if not self._recording or not self._mux_appsrc:
+            return Gst.FlowReturn.OK
+
         buf = sample.get_buffer()
         caps = sample.get_caps()
+
+        self._sample_count += 1
+        if self._sample_count <= 3 or self._sample_count % 100 == 0:
+            log.warning(
+                "Encoded sample #%d: pts=%s size=%d caps=%s",
+                self._sample_count,
+                buf.pts if buf else "N/A",
+                buf.get_size() if buf else 0,
+                caps.to_string() if caps else "none",
+            )
+
+        # Clear timestamps — let appsrc (do-timestamp=true) assign from mux clock
+        buf = buf.copy()
+        buf.pts = Gst.CLOCK_TIME_NONE
+        buf.dts = Gst.CLOCK_TIME_NONE
 
         # Set caps on appsrc if needed
         current_caps = self._mux_appsrc.get_property("caps")
@@ -302,7 +345,7 @@ class VideoRecorder:
 
         ret = self._mux_appsrc.emit("push-buffer", buf)
         if ret != Gst.FlowReturn.OK:
-            log.debug("mux appsrc push-buffer: %s", ret)
+            log.warning("mux appsrc push-buffer: %s", ret)
 
         return Gst.FlowReturn.OK
 
@@ -356,6 +399,7 @@ class VideoRecorder:
         """Stop and clean up the muxing pipeline."""
         if self._mux_pipeline:
             self._mux_pipeline.set_state(Gst.State.NULL)
+            self._mux_pipeline.get_state(5 * Gst.SECOND)
             bus = self._mux_pipeline.get_bus()
             if bus:
                 bus.remove_signal_watch()
@@ -363,10 +407,24 @@ class VideoRecorder:
         self._mux_appsrc = None
 
     def _teardown_encoder_branch(self) -> None:
-        """Remove encoder branch from the preview pipeline."""
+        """Remove encoder branch from the preview pipeline using pad blocking."""
         pipeline = self._preview_pipeline
         if not pipeline:
             return
+
+        # Disconnect appsink signal first
+        if self._enc_appsink is not None:
+            try:
+                self._enc_appsink.set_property("emit-signals", False)
+            except Exception:
+                pass
+
+        # Block tee src pad to stop data flow
+        if self._tee_pad:
+            self._tee_pad.add_probe(
+                Gst.PadProbeType.BLOCK_DOWNSTREAM,
+                lambda pad, info: Gst.PadProbeReturn.OK,
+            )
 
         # Disconnect tee pad
         if self._tee_pad and self._tee and self._enc_queue:
@@ -386,10 +444,18 @@ class VideoRecorder:
             self._enc_queue,
         ]
 
+        # Remove from pipeline first (stops state management by parent)
+        for elem in all_elems:
+            if elem is not None:
+                try:
+                    pipeline.remove(elem)
+                except Exception:
+                    pass
+
+        # Now set orphaned elements to NULL
         for elem in all_elems:
             if elem is not None:
                 elem.set_state(Gst.State.NULL)
-                pipeline.remove(elem)
 
         self._enc_queue = None
         self._enc_convert = None

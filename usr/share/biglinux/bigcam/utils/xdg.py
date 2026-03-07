@@ -1,6 +1,7 @@
 """XDG Base Directory paths for BigCam."""
 
 import os
+import subprocess
 
 _APP = "bigcam"
 
@@ -8,6 +9,21 @@ _APP = "bigcam"
 def _ensure(path: str) -> str:
     os.makedirs(path, exist_ok=True)
     return path
+
+
+def _user_dir(kind: str, fallback: str) -> str:
+    """Get XDG user directory via xdg-user-dir command."""
+    try:
+        result = subprocess.run(
+            ["xdg-user-dir", kind],
+            capture_output=True, text=True, timeout=3,
+        )
+        path = result.stdout.strip()
+        if path and os.path.isabs(path):
+            return path
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return os.path.expanduser(fallback)
 
 
 def config_dir() -> str:
@@ -26,18 +42,12 @@ def cache_dir() -> str:
 
 
 def photos_dir() -> str:
-    pictures = os.environ.get(
-        "XDG_PICTURES_DIR",
-        os.path.expanduser("~/Pictures"),
-    )
+    pictures = _user_dir("PICTURES", "~/Pictures")
     return _ensure(os.path.join(pictures, "BigCam"))
 
 
 def videos_dir() -> str:
-    videos = os.environ.get(
-        "XDG_VIDEOS_DIR",
-        os.path.expanduser("~/Videos"),
-    )
+    videos = _user_dir("VIDEOS", "~/Videos")
     return _ensure(os.path.join(videos, "BigCam"))
 
 

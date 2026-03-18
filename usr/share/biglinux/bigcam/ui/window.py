@@ -1049,6 +1049,37 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                     break
             self._on_camera_selected(self._camera_selector, cam)
 
+        elif not self._camera_manager.cameras:
+            # All cameras disconnected — stop stream and reset UI
+            log.info("All cameras removed — stopping stream and resetting UI")
+            self._stream_engine.stop()
+            self._active_camera = None
+            self._camera_selector.set_active_camera(None)
+            self._preview.show_status(
+                _("No camera"),
+                _("Connect a camera or select one from the list above."),
+            )
+            title_widget = self._header.get_title_widget()
+            if isinstance(title_widget, Adw.WindowTitle):
+                title_widget.set_subtitle("")
+
+        elif (
+            self._active_camera
+            and self._active_camera.id not in current_ids
+            and self._camera_manager.cameras
+        ):
+            # Active camera was disconnected but others remain — switch to first available
+            log.info("Active camera %s disconnected, switching to %s",
+                      self._active_camera.name, self._camera_manager.cameras[0].name)
+            self._active_camera = None
+            cam = self._camera_manager.cameras[0]
+            cameras = self._camera_manager.cameras
+            for i, c in enumerate(cameras):
+                if c.id == cam.id:
+                    self._camera_selector.set_selected_silent(i)
+                    break
+            self._on_camera_selected(self._camera_selector, cam)
+
     def _select_camera_by_id(self, camera_id: str) -> None:
         """Select a camera by its ID in the dropdown and start preview."""
         cameras = self._camera_manager.cameras

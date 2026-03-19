@@ -247,21 +247,30 @@ class PreviewArea(Gtk.Overlay):
     # -- audio overlay -------------------------------------------------------
 
     def _build_audio_overlay(self) -> Gtk.Box:
-        box = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            spacing=4,
+        """Build audio overlay with checkboxes + mute icon on top row,
+        and per-source vertical volume sliders that appear on hover."""
+        # Main container: vertical — top row of checks + slider popups below
+        outer = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=0,
             margin_start=6,
             margin_end=6,
             margin_top=4,
             margin_bottom=4,
         )
-        box.add_css_class("osd")
-        box.add_css_class("audio-overlay")
+        outer.add_css_class("osd")
+        outer.add_css_class("audio-overlay")
 
-        self._audio_checks_box = Gtk.Box(
+        # Top row: checkboxes + mute icon
+        top_row = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL, spacing=2
         )
-        box.append(self._audio_checks_box)
+        top_row.set_valign(Gtk.Align.CENTER)
+
+        self._audio_checks_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL, spacing=0
+        )
+        top_row.append(self._audio_checks_box)
 
         self._mute_btn = Gtk.Button.new_from_icon_name(
             "audio-volume-medium-symbolic"
@@ -274,40 +283,37 @@ class PreviewArea(Gtk.Overlay):
             [Gtk.AccessibleProperty.LABEL], [_("Mute")]
         )
         self._mute_btn.connect("clicked", self._on_mute_clicked)
-        box.append(self._mute_btn)
+        top_row.append(self._mute_btn)
 
-        self._vol_scale = Gtk.Scale.new_with_range(
-            Gtk.Orientation.HORIZONTAL, 0.0, 1.0, 0.05
-        )
-        self._vol_scale.set_value(0.5)
-        self._vol_scale.set_draw_value(False)
-        self._vol_scale.set_size_request(120, -1)
-        self._vol_scale.add_css_class("audio-vol-scale")
-        self._vol_scale.update_property(
-            [Gtk.AccessibleProperty.LABEL], [_("Volume")]
-        )
-        self._vol_scale_handler = self._vol_scale.connect(
-            "value-changed", self._on_vol_scale_changed
-        )
-        box.append(self._vol_scale)
+        outer.append(top_row)
 
-        return box
+        # Container for vertical volume sliders (shown on hover)
+        self._vol_sliders_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL, spacing=0
+        )
+        self._vol_sliders_box.set_visible(False)
+        self._vol_sliders_box.set_halign(Gtk.Align.START)
+        outer.append(self._vol_sliders_box)
+
+        # Track per-source slider widgets: {source_name: Gtk.Scale}
+        self._source_scales: dict[str, Gtk.Scale] = {}
+        # Track per-source scale signal handlers
+        self._source_scale_handlers: dict[str, int] = {}
+
+        return outer
 
     def set_audio_monitor(self, monitor: AudioMonitor | None) -> None:
         """Bind an AudioMonitor to the overlay controls."""
         if self._audio_monitor:
             try:
                 self._audio_monitor.disconnect_by_func(self._on_sources_changed)
-                self._audio_monitor.disconnect_by_func(self._on_volume_changed)
                 self._audio_monitor.disconnect_by_func(self._on_mute_changed)
             except TypeError:
                 pass
         self._audio_monitor = monitor
         if monitor:
             monitor.connect("sources-changed", self._on_sources_changed)
-            monitor.connect("volume-changed", self._on_volume_changed)
             monitor.connect("mute-changed", self._on_mute_changed)
-            self._sync_scale(monitor.volume)
             self._update_mute_icon(monitor.muted)
         else:
             self._audio_box.set_visible(False)
@@ -320,12 +326,28 @@ class PreviewArea(Gtk.Overlay):
                 break
             self._audio_checks_box.remove(child)
 
+        # Clear old volume sliders
+        while True:
+            child = self._vol_sliders_box.get_first_child()
+            if child is None:
+                break
+            self._vol_sliders_box.remove(child)
+        self._source_scales.clear()
+        self._source_scale_handlers.clear()
+        self._vol_sliders_box.set_visible(False)
+
         sources = mon.sources
         if not sources:
             self._audio_box.set_visible(False)
             return
 
         for idx, (src_name, label) in enumerate(sources, start=1):
+            # -- Checkbox item container (vertical: checkbox on top, slider below) --
+            item_box = Gtk.Box(
+                orientation=Gtk.Orientation.VERTICAL, spacing=0
+            )
+            item_box.add_css_class("audio-source-item")
+
             check = Gtk.CheckButton(label=str(idx))
             check.set_active(mon.is_active(src_name))
             check.set_tooltip_text(label)
@@ -334,9 +356,68 @@ class PreviewArea(Gtk.Overlay):
                 [f"{label} – audio {idx}"],
             )
             check.connect("toggled", self._on_audio_check_toggled, src_name)
-            self._audio_checks_box.append(check)
+            item_box.append(check)
+
+            self._audio_checks_box.append(item_box)
+
+            # -- Vertical volume slider (in sliders box, aligned under checkbox) --
+            slider_container = Gtk.Box(
+                orientation=Gtk.Orientation.VERTICAL, spacing=2
+            )
+            slider_container.add_css_class("audio-vol-slider-container")
+            slider_container.set_halign(Gtk.Align.CENTER)
+
+            # "+" label at top (max volume)
+            plus_label = Gtk.Label(label="+")
+            plus_label.add_css_class("audio-vol-label")
+            plus_label.set_halign(Gtk.Align.CENTER)
+            slider_container.append(plus_label)
+
+            vol_scale = Gtk.Scale.new_with_range(
+                Gtk.Orientation.VERTICAL, 0.0, 1.0, 0.05
+            )
+            vol_scale.set_inverted(True)  # top = max, bottom = min
+            vol_scale.set_value(mon.get_source_volume(src_name))
+            vol_scale.set_draw_value(False)
+            vol_scale.set_size_request(-1, 100)
+            vol_scale.add_css_class("audio-vol-vertical")
+            vol_scale.set_halign(Gtk.Align.CENTER)
+            vol_scale.update_property(
+                [Gtk.AccessibleProperty.LABEL],
+                [f"{label} – volume"],
+            )
+            handler_id = vol_scale.connect(
+                "value-changed", self._on_source_vol_changed, src_name
+            )
+            self._source_scales[src_name] = vol_scale
+            self._source_scale_handlers[src_name] = handler_id
+            slider_container.append(vol_scale)
+
+            # "−" label at bottom (min volume)
+            minus_label = Gtk.Label(label="−")
+            minus_label.add_css_class("audio-vol-label")
+            minus_label.set_halign(Gtk.Align.CENTER)
+            slider_container.append(minus_label)
+
+            self._vol_sliders_box.append(slider_container)
+
+        # Add hover controller to the entire audio overlay to show/hide sliders
+        if not hasattr(self, "_audio_hover_ctrl"):
+            self._audio_hover_ctrl = Gtk.EventControllerMotion()
+            self._audio_hover_ctrl.connect("enter", self._on_audio_hover_enter)
+            self._audio_hover_ctrl.connect("leave", self._on_audio_hover_leave)
+            self._audio_box.add_controller(self._audio_hover_ctrl)
 
         self._audio_box.set_visible(True)
+
+    def _on_audio_hover_enter(self, *_args) -> None:
+        """Show volume sliders when mouse enters the audio overlay."""
+        if self._source_scales:
+            self._vol_sliders_box.set_visible(True)
+
+    def _on_audio_hover_leave(self, *_args) -> None:
+        """Hide volume sliders when mouse leaves the audio overlay."""
+        self._vol_sliders_box.set_visible(False)
 
     def _on_audio_check_toggled(
         self, check: Gtk.CheckButton, source_name: str
@@ -348,30 +429,15 @@ class PreviewArea(Gtk.Overlay):
         if want_active != is_active:
             self._audio_monitor.toggle_source(source_name)
 
-    def _on_volume_changed(self, _mon: AudioMonitor, volume: float) -> None:
-        self._sync_scale(volume)
-        self._update_mute_icon(self._audio_monitor.muted if self._audio_monitor else False)
-
     def _on_mute_changed(self, _mon: AudioMonitor, muted: bool) -> None:
         self._update_mute_icon(muted)
-
-    def _sync_scale(self, volume: float) -> None:
-        self._vol_scale.handler_block(self._vol_scale_handler)
-        self._vol_scale.set_value(volume)
-        self._vol_scale.handler_unblock(self._vol_scale_handler)
 
     def _update_mute_icon(self, muted: bool) -> None:
         if muted:
             icon = "audio-volume-muted-symbolic"
             self._mute_btn.set_tooltip_text(_("Unmute"))
         else:
-            vol = self._audio_monitor.volume if self._audio_monitor else 0.5
-            if vol < 0.33:
-                icon = "audio-volume-low-symbolic"
-            elif vol < 0.66:
-                icon = "audio-volume-medium-symbolic"
-            else:
-                icon = "audio-volume-high-symbolic"
+            icon = "audio-volume-high-symbolic"
             self._mute_btn.set_tooltip_text(_("Mute"))
         self._mute_btn.set_icon_name(icon)
 
@@ -379,9 +445,12 @@ class PreviewArea(Gtk.Overlay):
         if self._audio_monitor:
             self._audio_monitor.toggle_mute()
 
-    def _on_vol_scale_changed(self, scale: Gtk.Scale) -> None:
+    def _on_source_vol_changed(
+        self, scale: Gtk.Scale, source_name: str
+    ) -> None:
+        """Handle per-source vertical volume slider change."""
         if self._audio_monitor:
-            self._audio_monitor.set_volume(scale.get_value())
+            self._audio_monitor.set_source_volume(source_name, scale.get_value())
 
     # -- signals / callbacks -------------------------------------------------
 

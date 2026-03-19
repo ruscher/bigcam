@@ -41,6 +41,7 @@ class VideoRecorder:
         self._vsrc: Gst.Element | None = None
         self._audio_srcs: list[Gst.Element] = []
         self._audio_vol_elements: dict[str, Gst.Element] = {}
+        self._global_muted: bool = False
         self._w = 0
         self._h = 0
         self._start_time = 0
@@ -62,6 +63,8 @@ class VideoRecorder:
         record_audio: bool = True,
         audio_sources: list[str] | None = None,
         active_audio_sources: list[str] | None = None,
+        source_volumes: dict[str, float] | None = None,
+        muted: bool = False,
     ) -> str | None:
         """Initialize recording. The actual pipeline starts on the first frame.
 
@@ -69,7 +72,9 @@ class VideoRecorder:
             audio_sources: All PulseAudio source device names from AudioMonitor
                            to include in the recording pipeline.
             active_audio_sources: Subset of audio_sources that are currently
-                                  active (unmuted). Others start muted.
+                                   active (unmuted). Others start muted.
+            source_volumes: Per-source volume levels {source_name: 0.0–1.0}.
+            muted: Whether global mute is currently active.
         """
         if self._recording:
             return None
@@ -84,6 +89,8 @@ class VideoRecorder:
         self._record_audio = record_audio
         self._audio_source_devices = audio_sources or []
         self._active_audio_set = set(active_audio_sources or [])
+        self._source_volumes: dict[str, float] = dict(source_volumes or {})
+        self._global_muted = muted
         self._recording = True
         self._w = 0
         self._h = 0
@@ -93,7 +100,7 @@ class VideoRecorder:
         self._audio_vol_elements = {}
         self._start_time = time.time()
 
-        log.info("Recording initialized: %s", self._output_path)
+        log.info("Recording initialized: %s (muted=%s)", self._output_path, muted)
         return self._output_path
 
     def _pick_encoder_str(self) -> str:
@@ -121,40 +128,48 @@ class VideoRecorder:
         audio_str = ""
         if self._record_audio:
             extra_devs = self._audio_source_devices
+            # Determine initial volume for the system mic (respects global mute)
+            mic_vol = 0.0 if self._global_muted else 1.0
+
+            # Pipeline setup: always use audiomixer to combine system mic + cameras
+            # All sources use provide-clock=false to use system/global pipeline clock
+            # audiomixer latency handles sync between sources
+            audio_str = (
+                "audiomixer name=amix latency=500000000 ! "
+                "queue max-size-time=2000000000 ! audioconvert ! "
+                "audioresample ! audiorate ! opusenc ! mux. "
+            )
+
+            # System Microfone (Default source)
+            # do-timestamp=true: use pipeline clock for timestamps
+            # provide-clock=false: don't compete for clock master
+            audio_str += (
+                "pulsesrc do-timestamp=true provide-clock=false "
+                "buffer-time=200000 latency-time=50000 "
+                "name=asrc_mic ! "
+                "queue max-size-time=1000000000 ! "
+                "audioconvert ! audioresample ! "
+                f"volume name=avol_mic volume={mic_vol} ! amix. "
+            )
+
             if extra_devs:
-                # Mix default mic + USB camera audio sources via audiomixer
-                # Each USB source gets a volume element for dynamic mute/unmute
-                # do-timestamp=true: all sources use pipeline clock for timestamps
-                # Default mic provides clock; extras use provide-clock=false
-                # audiomixer latency=200ms tolerates source desync
-                audio_str = (
-                    "audiomixer name=amix ! "
-                    "queue max-size-time=1000000000 ! audioconvert ! "
-                    "audiorate ! opusenc ! mux. "
-                )
-                audio_str += (
-                    "pulsesrc do-timestamp=true provide-clock=false "
-                    "buffer-time=200000 latency-time=50000 "
-                    "name=asrc_mic ! queue max-size-time=1000000000 ! "
-                    "audioconvert ! amix. "
-                )
                 for i, dev in enumerate(extra_devs):
                     safe = dev.replace('"', '\\"')
-                    vol = "1.0" if dev in self._active_audio_set else "0.0"
+                    if dev in self._active_audio_set and not self._global_muted:
+                        vol = self._source_volumes.get(dev, 1.0)
+                    else:
+                        vol = 0.0
+                    
+                    # USB sources follow global clock
                     audio_str += (
                         f'pulsesrc device="{safe}" do-timestamp=true '
-                        f'provide-clock=false buffer-time=200000 '
-                        f'latency-time=50000 name=asrc_{i} ! '
-                        f'queue max-size-time=1000000000 ! audioconvert ! '
+                        f'provide-clock=false '
+                        f'buffer-time=500000 latency-time=100000 '
+                        f'name=asrc_{i} ! '
+                        f'queue max-size-time=2000000000 max-size-buffers=0 max-size-bytes=0 ! '
+                        f'audioconvert ! audioresample ! '
                         f'volume name=avol_{i} volume={vol} ! amix. '
                     )
-            else:
-                audio_str = (
-                    "pulsesrc do-timestamp=true provide-clock=false "
-                    "buffer-time=200000 latency-time=50000 "
-                    "name=asrc_mic ! queue max-size-time=1000000000 ! "
-                    "audioconvert ! audiorate ! opusenc ! mux. "
-                )
 
         escaped = self._output_path.replace('"', '\\"')
         pipeline_str = (
@@ -168,9 +183,10 @@ class VideoRecorder:
 
         log.info("Recording pipeline: %s", pipeline_str)
         log.info(
-            "Audio sources: all=%s active=%s",
+            "Audio sources: all=%s active=%s volumes=%s",
             self._audio_source_devices,
             list(self._active_audio_set),
+            self._source_volumes,
         )
         try:
             self._pipeline = Gst.parse_launch(pipeline_str)
@@ -188,6 +204,10 @@ class VideoRecorder:
 
             # Collect volume elements for dynamic mute/unmute
             self._audio_vol_elements = {}
+            mic_vol_el = self._pipeline.get_by_name("avol_mic")
+            if mic_vol_el:
+                self._audio_vol_elements["__mic__"] = mic_vol_el
+                
             for i, dev in enumerate(self._audio_source_devices):
                 vol_el = self._pipeline.get_by_name(f"avol_{i}")
                 if vol_el:
@@ -213,10 +233,45 @@ class VideoRecorder:
 
     def set_source_active(self, source_name: str, active: bool) -> None:
         """Mute or unmute a USB camera audio source in the recording pipeline."""
+        if active:
+            self._active_audio_set.add(source_name)
+        else:
+            self._active_audio_set.discard(source_name)
         vol_el = self._audio_vol_elements.get(source_name)
         if vol_el:
-            vol_el.set_property("volume", 1.0 if active else 0.0)
-            log.debug("Recording audio %s: %s", "unmuted" if active else "muted", source_name)
+            if active and not self._global_muted:
+                vol = self._source_volumes.get(source_name, 1.0)
+            else:
+                vol = 0.0
+            vol_el.set_property("volume", vol)
+            log.info("Recording audio %s: %s (vol=%.2f)", "unmuted" if active else "muted", source_name, vol)
+
+    def set_muted(self, muted: bool) -> None:
+        """Global mute/unmute all audio sources in the recording pipeline."""
+        self._global_muted = muted
+        for dev, vol_el in self._audio_vol_elements.items():
+            if muted:
+                vol_el.set_property("volume", 0.0)
+            else:
+                if dev == "__mic__":
+                    vol_el.set_property("volume", 1.0)
+                # Restore per-source volume if source is active
+                elif dev in self._active_audio_set:
+                    vol = self._source_volumes.get(dev, 1.0)
+                    vol_el.set_property("volume", vol)
+                # If not active, keep at 0.0
+        log.info("Recording global mute: %s", muted)
+
+    def set_source_volume(self, source_name: str, volume: float) -> None:
+        """Update per-source volume in the recording pipeline."""
+        volume = max(0.0, min(1.0, volume))
+        self._source_volumes[source_name] = volume
+        vol_el = self._audio_vol_elements.get(source_name)
+        if vol_el:
+            # Only apply if source is active and not globally muted
+            if source_name in self._active_audio_set and not self._global_muted:
+                vol_el.set_property("volume", volume)
+                log.info("Recording source volume: %s = %.2f", source_name, volume)
 
     def write_frame(self, bgr: Any) -> None:
         """Push a processed BGR frame into the recording pipeline."""

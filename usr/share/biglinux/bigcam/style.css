@@ -131,7 +131,7 @@ row.expander image.expander-row-arrow {
 /* Audio volume overlay (top-left) */
 .audio-overlay {
     border-radius: 8px;
-    padding: 2px 6px;
+    padding: 4px 6px;
 }
 
 .audio-overlay-btn {
@@ -140,6 +140,27 @@ row.expander image.expander-row-arrow {
     padding: 0;
 }
 
-.audio-vol-scale {
-    margin: 0 4px;
+.audio-source-item {
+    padding: 0;
+    margin: 0;
+}
+
+/* Vertical volume slider container */
+.audio-vol-slider-container {
+    padding: 4px 8px;
+    min-width: 32px;
+}
+
+.audio-vol-vertical {
+    min-height: 100px;
+}
+
+.audio-vol-vertical trough {
+    min-width: 6px;
+}
+
+.audio-vol-label {
+    font-size: 0.8em;
+    font-weight: bold;
+    opacity: 0.7;
 }

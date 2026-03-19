@@ -173,6 +173,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._preview.set_audio_monitor(self._audio_monitor)
         self._audio_monitor.detect_all()
         self._audio_monitor.connect("source-toggled", self._on_audio_source_toggled)
+        self._audio_monitor.connect("source-volume-changed", self._on_audio_source_volume_changed)
+        self._audio_monitor.connect("mute-changed", self._on_audio_mute_changed)
         self._paned.set_start_child(self._preview)
 
         # RIGHT: sidebar with ViewStack
@@ -972,12 +974,18 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                     _("No camera selected."), "warning"
                 )
                 return
+            # Build per-source volume dict from AudioMonitor
+            source_volumes = {}
+            for src_name in self._audio_monitor.all_source_names:
+                source_volumes[src_name] = self._audio_monitor.get_source_volume(src_name)
             path = self._video_recorder.start(
                 self._active_camera,
                 self._stream_engine.pipeline,
                 mirror=self._stream_engine.mirror,
                 audio_sources=self._audio_monitor.all_source_names,
                 active_audio_sources=self._audio_monitor.active_source_names,
+                source_volumes=source_volumes,
+                muted=self._audio_monitor.muted,
             )
             if path:
                 self._preview.set_recording_state(True)
@@ -995,6 +1003,18 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         """Forward audio source toggle to the video recorder during recording."""
         if self._video_recorder.is_recording:
             self._video_recorder.set_source_active(source_name, active)
+
+    def _on_audio_source_volume_changed(
+        self, _monitor: AudioMonitor, source_name: str, volume: float
+    ) -> None:
+        """Forward per-source volume change to the video recorder during recording."""
+        if self._video_recorder.is_recording:
+            self._video_recorder.set_source_volume(source_name, volume)
+
+    def _on_audio_mute_changed(self, _monitor: AudioMonitor, muted: bool) -> None:
+        """Forward global mute change to the video recorder during recording."""
+        if self._video_recorder.is_recording:
+            self._video_recorder.set_muted(muted)
 
     # -- profiles ------------------------------------------------------------
 

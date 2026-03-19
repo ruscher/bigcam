@@ -74,10 +74,6 @@ msgstr ""
 msgid "Mute"
 msgstr "Stummschalten"
 # 
-# File: bigcam/usr/share/biglinux/bigcam/ui/preview_area.py, line: 287
-msgid "Volume"
-msgstr "Lautstärke"
-# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/preview_area.py, line: 366
 msgid "Unmute"
 msgstr "Stummschalten"

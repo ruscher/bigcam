@@ -74,10 +74,6 @@ msgstr ""
 msgid "Mute"
 msgstr "Susturmak"
 # 
-# File: bigcam/usr/share/biglinux/bigcam/ui/preview_area.py, line: 287
-msgid "Volume"
-msgstr "Ses Seviyesi"
-# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/preview_area.py, line: 366
 msgid "Unmute"
 msgstr "Sesi aç"

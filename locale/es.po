@@ -206,6 +206,15 @@ msgstr ""
 msgid "Automatically detect cameras when plugged or unplugged."
 msgstr ""
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 156
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 164
+msgid "Show help on hover"
+msgstr "Mostrar ayuda al pasar el mouse"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 157
+msgid "Show tooltip hints when hovering over buttons."
+msgstr "Mostrar sugerencias emergentes al pasar el cursor sobre los botones."
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 155
 #: usr/share/biglinux/bigcam/ui/settings_page.py:155
 msgid "Preview"
@@ -639,6 +648,99 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 47
+msgid "Welcome to BigCam"
+msgstr "Bienvenido a BigCam"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 55
+msgid "Your universal webcam control center for Linux"
+msgstr "Tu centro de control universal de cámaras web para Linux"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 72
+msgid "Photo & Video Capture"
+msgstr "Captura de fotos y videos"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 73
+msgid ""
+"Take photos and record videos\n"
+"with timer and countdown support"
+msgstr "Toma fotos y graba videos con soporte de temporizador y cuenta regresiva."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 77
+msgid "Mirror Preview"
+msgstr "Vista previa del espejo"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 78
+msgid ""
+"Flip the camera preview\n"
+"horizontally like a mirror"
+msgstr "Voltea la vista previa de la cámara horizontalmente como un espejo."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 82
+msgid "Real-Time Effects"
+msgstr "Efectos en Tiempo Real"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 83
+msgid ""
+"Apply brightness, contrast, blur,\n"
+"sepia, vignette and more effects live"
+msgstr "Aplica brillo, contraste, desenfoque, sepia, viñeta y más efectos en vivo."
+# 
+# #-#-#-#-#  bigcam.pot (bigcam)  #-#-#-#-#
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/phone_camera_dialog.py, line: 39
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 114
+#: usr/share/biglinux/bigcam/ui/phone_camera_dialog.py:39
+#: usr/share/biglinux/bigcam/ui/window.py:114
+msgid "Phone as Webcam"
+msgstr ""
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 88
+msgid ""
+"Use your smartphone camera\n"
+"wirelessly as a webcam"
+msgstr "Usa la cámara de tu smartphone de forma inalámbrica como una cámara web."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 95
+msgid "Multiple Cameras"
+msgstr "Múltiples cámaras"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 96
+msgid ""
+"Switch between USB, IP, and\n"
+"virtual cameras with hotplug support"
+msgstr "Cambia entre cámaras USB, IP y virtuales con soporte de conexión en caliente."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 101
+msgid ""
+"Scan QR codes and barcodes\n"
+"directly from the camera feed"
+msgstr "Escanea códigos QR y códigos de barras directamente desde la transmisión de la cámara."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 106
+msgid ""
+"Automatic photo capture when\n"
+"a smile is detected"
+msgstr "Captura de foto automática cuando se detecta una sonrisa."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 111
+msgid ""
+"Create a virtual camera device\n"
+"for use in video calls"
+msgstr "Crea un dispositivo de cámara virtual para usar en videollamadas."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 133
+msgid "Tip: Press Space to capture, Ctrl+R to record, Tab to toggle sidebar"
+msgstr "Consejo: Presiona Espacio para capturar, Ctrl+R para grabar, Tab para alternar la barra lateral."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 154
+msgid "Show dialog on startup"
+msgstr "Mostrar diálogo al iniciar"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/welcome_dialog.py, line: 165
+msgid "Let's Start"
+msgstr "Comencemos"
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/about_dialog.py, line: 35
 #: usr/share/biglinux/bigcam/ui/about_dialog.py:35
 msgid "Universal webcam control center for Linux."
@@ -675,15 +777,6 @@ msgstr ""
 # File: bigcam/usr/share/biglinux/bigcam/ui/video_gallery.py, line: 299
 #: usr/share/biglinux/bigcam/ui/video_gallery.py:299
 msgid "Delete video?"
-msgstr ""
-# 
-# #-#-#-#-#  bigcam.pot (bigcam)  #-#-#-#-#
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/phone_camera_dialog.py, line: 39
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 114
-#: usr/share/biglinux/bigcam/ui/phone_camera_dialog.py:39
-#: usr/share/biglinux/bigcam/ui/window.py:114
-msgid "Phone as Webcam"
 msgstr ""
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/phone_camera_dialog.py, line: 69
@@ -1131,16 +1224,6 @@ msgstr ""
 msgid "Camera selector"
 msgstr ""
 # 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 95
-#: usr/share/biglinux/bigcam/ui/window.py:95
-msgid "Menu"
-msgstr ""
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 96
-#: usr/share/biglinux/bigcam/ui/window.py:96
-msgid "Main menu"
-msgstr ""
-# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 112
 #: usr/share/biglinux/bigcam/ui/window.py:112
 msgid "Use your phone as a webcam"
@@ -1153,6 +1236,10 @@ msgstr ""
 msgid "Phone camera status"
 msgstr ""
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 230
+msgid "Always on Top"
+msgstr "Siempre en la parte superior"
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 144
 #: usr/share/biglinux/bigcam/ui/window.py:144
 msgid "Refresh cameras"
@@ -1162,6 +1249,61 @@ msgstr ""
 #: usr/share/biglinux/bigcam/ui/window.py:146
 msgid "Refresh camera list"
 msgstr ""
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 287
+msgid "Toggle grid overlay"
+msgstr "Alternar superposición de cuadrícula"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 95
+#: usr/share/biglinux/bigcam/ui/window.py:95
+msgid "Menu"
+msgstr ""
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 96
+#: usr/share/biglinux/bigcam/ui/window.py:96
+msgid "Main menu"
+msgstr ""
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 365
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 367
+msgid "Photo mode"
+msgstr "Modo de foto"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 374
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 376
+msgid "Video mode"
+msgstr "Modo de video"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 403
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 776
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 782
+msgid "Last photo"
+msgstr "Última foto"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 405
+msgid "Open last photo"
+msgstr "Abrir la última foto"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 874
+#: usr/share/biglinux/bigcam/ui/window.py:805
+msgid "Enable Virtual Camera"
+msgstr ""
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 524
+msgid "Zoom level"
+msgstr "Nivel de zoom"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 526
+msgid "Change zoom level"
+msgstr "Cambiar el nivel de zoom"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 538
+msgid "Fullscreen (F11)"
+msgstr "Pantalla completa (F11)"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 550
+msgid "Toggle sidebar"
+msgstr "Alternar barra lateral"
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 186
 #: usr/share/biglinux/bigcam/ui/window.py:186
@@ -1187,6 +1329,31 @@ msgstr ""
 #: usr/share/biglinux/bigcam/ui/window.py:237
 msgid "Settings"
 msgstr ""
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 660
+msgid "Close sidebar"
+msgstr "Cerrar barra lateral"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 740
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1867
+msgid "Start recording"
+msgstr "Comenzar grabación"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 774
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 779
+msgid "Last video"
+msgstr "Último video"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 947
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1046
+msgid "Capture timer: Off"
+msgstr "Temporizador de captura: Apagar"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 951
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1050
+#, python-format
+msgid "Capture timer: %ds"
+msgstr "Temporizador de captura: %ds"
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 256
 #: usr/share/biglinux/bigcam/ui/window.py:256
@@ -1227,6 +1394,10 @@ msgstr ""
 #: usr/share/biglinux/bigcam/ui/window.py:269
 msgid "About"
 msgstr ""
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1125
+msgid "Quit"
+msgstr "Salir"
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 474
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 535
@@ -1362,11 +1533,6 @@ msgstr ""
 #: usr/share/biglinux/bigcam/ui/window.py:798
 #, python-format
 msgid "Force close %s"
-msgstr ""
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 874
-#: usr/share/biglinux/bigcam/ui/window.py:805
-msgid "Enable Virtual Camera"
 msgstr ""
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 879

@@ -73,7 +73,10 @@ class BigDigicamApp(Adw.Application):
 
     def _show_welcome(self, win: Gtk.Window) -> bool:
         self._welcome_dialog = WelcomeDialog(win, self._settings_mgr)
-        self._welcome_dialog.present()
+        if hasattr(win, "_immersion") and self._welcome_dialog._dialog:
+            win._immersion.present_dialog(self._welcome_dialog._dialog, win)
+        else:
+            self._welcome_dialog.present()
         return False
 
     def do_startup(self) -> None:

@@ -1254,6 +1254,11 @@ msgstr ""
 msgid "Phone camera status"
 msgstr ""
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 186
+#: usr/share/biglinux/bigcam/ui/window.py:186
+msgid "Controls"
+msgstr ""
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 230
 msgid "Always on Top"
 msgstr "Her Zaman Üstte"
@@ -1267,10 +1272,6 @@ msgstr ""
 #: usr/share/biglinux/bigcam/ui/window.py:146
 msgid "Refresh camera list"
 msgstr ""
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 287
-msgid "Toggle grid overlay"
-msgstr "Izgara örtüsünü aç/kapat"
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 95
 #: usr/share/biglinux/bigcam/ui/window.py:95
@@ -1315,18 +1316,13 @@ msgstr "Zoom seviyesi"
 msgid "Change zoom level"
 msgstr "Zoom seviyesini değiştir."
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 287
+msgid "Toggle grid overlay"
+msgstr "Izgara örtüsünü aç/kapat"
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 538
 msgid "Fullscreen (F11)"
 msgstr "Tam ekran (F11)"
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 550
-msgid "Toggle sidebar"
-msgstr "Kenar çubuğunu aç/kapat"
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 186
-#: usr/share/biglinux/bigcam/ui/window.py:186
-msgid "Controls"
-msgstr ""
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 195
 #: usr/share/biglinux/bigcam/ui/window.py:195

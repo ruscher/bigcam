@@ -1253,6 +1253,11 @@ msgstr ""
 msgid "Phone camera status"
 msgstr ""
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 186
+#: usr/share/biglinux/bigcam/ui/window.py:186
+msgid "Controls"
+msgstr ""
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 230
 msgid "Always on Top"
 msgstr "Uvijek na vrhu"
@@ -1266,10 +1271,6 @@ msgstr ""
 #: usr/share/biglinux/bigcam/ui/window.py:146
 msgid "Refresh camera list"
 msgstr ""
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 287
-msgid "Toggle grid overlay"
-msgstr "Prebaci mrežni sloj"
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 95
 #: usr/share/biglinux/bigcam/ui/window.py:95
@@ -1314,18 +1315,13 @@ msgstr "Razina zumiranja"
 msgid "Change zoom level"
 msgstr "Promijeni razinu zumiranja"
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 287
+msgid "Toggle grid overlay"
+msgstr "Prebaci mrežni sloj"
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 538
 msgid "Fullscreen (F11)"
 msgstr "Cjeloviti ekran (F11)"
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 550
-msgid "Toggle sidebar"
-msgstr "Prebaci bočnu traku"
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 186
-#: usr/share/biglinux/bigcam/ui/window.py:186
-msgid "Controls"
-msgstr ""
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 195
 #: usr/share/biglinux/bigcam/ui/window.py:195

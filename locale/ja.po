@@ -1252,6 +1252,11 @@ msgstr ""
 msgid "Phone camera status"
 msgstr ""
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 186
+#: usr/share/biglinux/bigcam/ui/window.py:186
+msgid "Controls"
+msgstr ""
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 230
 msgid "Always on Top"
 msgstr "常に最前面に表示"
@@ -1265,10 +1270,6 @@ msgstr ""
 #: usr/share/biglinux/bigcam/ui/window.py:146
 msgid "Refresh camera list"
 msgstr ""
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 287
-msgid "Toggle grid overlay"
-msgstr "グリッドオーバーレイを切り替える"
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 95
 #: usr/share/biglinux/bigcam/ui/window.py:95
@@ -1313,18 +1314,13 @@ msgstr "ズームレベル"
 msgid "Change zoom level"
 msgstr "ズームレベルを変更する"
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 287
+msgid "Toggle grid overlay"
+msgstr "グリッドオーバーレイを切り替える"
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 538
 msgid "Fullscreen (F11)"
 msgstr "全画面表示 (F11)"
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 550
-msgid "Toggle sidebar"
-msgstr "サイドバーを切り替える"
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 186
-#: usr/share/biglinux/bigcam/ui/window.py:186
-msgid "Controls"
-msgstr ""
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 195
 #: usr/share/biglinux/bigcam/ui/window.py:195

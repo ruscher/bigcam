@@ -1251,6 +1251,11 @@ msgstr ""
 msgid "Phone camera status"
 msgstr ""
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 186
+#: usr/share/biglinux/bigcam/ui/window.py:186
+msgid "Controls"
+msgstr ""
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 230
 msgid "Always on Top"
 msgstr "始终在最上层"
@@ -1264,10 +1269,6 @@ msgstr ""
 #: usr/share/biglinux/bigcam/ui/window.py:146
 msgid "Refresh camera list"
 msgstr ""
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 287
-msgid "Toggle grid overlay"
-msgstr "切换网格覆盖层"
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 95
 #: usr/share/biglinux/bigcam/ui/window.py:95
@@ -1312,18 +1313,13 @@ msgstr "缩放级别"
 msgid "Change zoom level"
 msgstr "更改缩放级别"
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 287
+msgid "Toggle grid overlay"
+msgstr "切换网格覆盖层"
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 538
 msgid "Fullscreen (F11)"
 msgstr "全屏 (F11)"
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 550
-msgid "Toggle sidebar"
-msgstr "切换侧边栏"
-# 
-# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 186
-#: usr/share/biglinux/bigcam/ui/window.py:186
-msgid "Controls"
-msgstr ""
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 195
 #: usr/share/biglinux/bigcam/ui/window.py:195

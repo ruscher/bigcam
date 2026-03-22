@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import threading
 from typing import Any
 
 import gi
@@ -540,20 +541,31 @@ class StreamEngine(GObject.Object):
                     self.emit("error", _("Failed to start camera streaming process."))
                     return False
 
-        gst_source = self._manager.get_gst_source(camera, fmt)
-        if not gst_source:
-            self.emit("error", _("Failed to obtain GStreamer source for this camera."))
-            return False
+        # Resolve GStreamer source in background (pw-dump can take seconds)
+        def _resolve_source() -> str:
+            return self._manager.get_gst_source(camera, fmt) or ""
 
-        # Extract FPS from the format for rate limiting
-        target_fps = 0
-        if fmt and fmt.fps:
-            target_fps = int(max(fmt.fps))
+        def _on_source_resolved(gst_source: str) -> None:
+            # Guard: camera may have changed while resolving
+            if self._current_camera is not camera:
+                return
+            if not gst_source:
+                self.emit("error", _("Failed to obtain GStreamer source for this camera."))
+                return
 
-        if self._use_appsink:
-            self._build_appsink_pipeline(gst_source)
-            return False
-        self._build_paintable_pipeline(gst_source, target_fps)
+            target_fps = 0
+            if fmt and fmt.fps:
+                target_fps = int(max(fmt.fps))
+
+            if self._use_appsink:
+                self._build_appsink_pipeline(gst_source)
+            else:
+                self._build_paintable_pipeline(gst_source, target_fps)
+
+        threading.Thread(
+            target=lambda: GLib.idle_add(_on_source_resolved, _resolve_source()),
+            daemon=True,
+        ).start()
         return False
 
     def _build_paintable_pipeline(self, gst_source: str, target_fps: int = 0) -> bool:
@@ -562,11 +574,6 @@ class StreamEngine(GObject.Object):
         Virtual camera output uses a separate appsrc → v4l2sink pipeline fed
         from the probe callback, ensuring OpenCV effects are applied.
         """
-        loopback_device = VirtualCamera.ensure_ready(
-            card_label=self._current_camera.name if self._current_camera else None,
-            camera_id=self._current_camera.id if self._current_camera else "",
-        )
-
         rate_limiter = ""
         if target_fps > 0:
             rate_limiter = f"videorate drop-only=true ! video/x-raw,framerate={target_fps}/1 ! "
@@ -585,9 +592,8 @@ class StreamEngine(GObject.Object):
         base_pipeline = f"{gst_source} ! {suffix}"
 
         if self._try_start_paintable(base_pipeline):
-            # Start separate vcam pipeline for effects-processed output
-            if loopback_device:
-                self._start_vcam(loopback_device)
+            # Resolve vcam device in background to avoid blocking the UI
+            self._resolve_vcam_async()
             return True
 
         # PipeWire source may fail on some format/fps combinations.
@@ -606,16 +612,13 @@ class StreamEngine(GObject.Object):
                 v4l2_source = backend._v4l2_gst_source(camera.device_path, camera, fmt_obj)
                 fallback_pipeline = f"{v4l2_source} ! {suffix}"
                 if self._try_start_paintable(fallback_pipeline):
-                    if loopback_device:
-                        self._start_vcam(loopback_device)
+                    self._resolve_vcam_async()
                     return True
 
-        # All pipelines failed — check if device is busy
+        # All pipelines failed — check if device is busy (in background)
         if camera and camera.device_path:
-            users = _find_device_users(camera.device_path)
-            if users:
-                self.emit("device-busy", camera.device_path, users)
-                return False
+            self._check_device_busy_async(camera.device_path)
+            return False
 
         self.emit("error", _("Failed to start camera stream."))
         return False
@@ -986,6 +989,46 @@ class StreamEngine(GObject.Object):
         except Exception:
             pass
         return False
+
+    # -- async helpers for non-blocking pipeline setup -----------------------
+
+    def _resolve_vcam_async(self) -> None:
+        """Resolve the virtual camera device in a background thread,
+        then start the vcam pipeline on the main thread."""
+        camera = self._current_camera
+        if not camera:
+            return
+
+        def _worker() -> str:
+            return VirtualCamera.ensure_ready(
+                card_label=camera.name,
+                camera_id=camera.id,
+            )
+
+        def _on_done(device: str) -> None:
+            if device and self._pipeline is not None:
+                self._start_vcam(device)
+
+        threading.Thread(
+            target=lambda: GLib.idle_add(_on_done, _worker()),
+            daemon=True,
+        ).start()
+
+    def _check_device_busy_async(self, device_path: str) -> None:
+        """Check if a device is busy in a background thread."""
+        def _worker() -> list[str]:
+            return _find_device_users(device_path)
+
+        def _on_done(users: list[str]) -> None:
+            if users:
+                self.emit("device-busy", device_path, users)
+            else:
+                self.emit("error", _("Failed to start camera stream."))
+
+        threading.Thread(
+            target=lambda: GLib.idle_add(_on_done, _worker()),
+            daemon=True,
+        ).start()
 
     # -- virtual camera output (appsrc → v4l2sink) --------------------------
 

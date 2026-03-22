@@ -31,7 +31,6 @@ from ui.photo_gallery import PhotoGallery
 from ui.video_gallery import VideoGallery
 from ui.settings_page import SettingsPage
 from ui.effects_page import EffectsPage
-from ui.about_dialog import show_about
 from ui.immersion import ImmersionController
 from ui.ip_camera_dialog import IPCameraDialog
 from ui.phone_camera_dialog import PhoneCameraDialog
@@ -119,14 +118,13 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         # Phone camera button with icon + label + status dot overlay
         phone_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         phone_icon = Gtk.Image.new_from_icon_name("phone-symbolic")
+        phone_icon.set_pixel_size(14)
         phone_label = Gtk.Label(label=_("Phone"))
-        phone_label.add_css_class("caption")
         phone_box.append(phone_icon)
         phone_box.append(phone_label)
 
         phone_btn = Gtk.Button()
         phone_btn.set_child(phone_box)
-        phone_btn.add_css_class("flat")
         phone_btn.add_css_class("phone-webcam-button")
         self._register_tooltip(phone_btn, _("Use your phone as a webcam"))
         phone_btn.update_property(
@@ -176,6 +174,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._preview.set_show_fps(self._settings.get("show_fps"))
         self._preview.set_grid_visible(self._settings.get("grid_overlay"))
         self._preview.set_mirror(bool(self._settings.get("mirror_preview")))
+        self._apply_overlay_opacity(self._settings.get("overlay-opacity"))
+        self._apply_controls_opacity(self._settings.get("controls-opacity"))
         self._preview.set_audio_monitor(self._audio_monitor)
         self._audio_monitor.detect_all()
         self._audio_monitor.connect("source-toggled", self._on_audio_source_toggled)
@@ -324,6 +324,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         top_menu_btn.add_css_class("flat")
         top_menu_btn.add_css_class("circular")
         top_menu_btn.set_menu_model(self._build_menu())
+        top_menu_btn.connect("notify::active", self._on_menu_popover_toggled)
         top_bar.append(top_menu_btn)
 
         # Window controls (CSD buttons)
@@ -369,7 +370,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._mode_photo_btn = photo_btn
 
         video_btn = Gtk.ToggleButton()
-        video_btn.set_icon_name("camera-video-symbolic")
+        video_btn.set_icon_name("emblem-videos-symbolic")
         video_btn.set_group(photo_btn)
         self._register_tooltip(video_btn, _("Video mode"))
         video_btn.update_property(
@@ -461,6 +462,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         vcam_btn.set_size_request(44, 44)
         vcam_btn.set_halign(Gtk.Align.CENTER)
         vcam_btn.set_valign(Gtk.Align.CENTER)
+        vcam_btn.set_active(bool(self._settings.get("virtual-camera-enabled")))
         vcam_btn.connect("toggled", self._on_vcam_quick_toggled)
         self._vcam_quick_btn = vcam_btn
         controls_start.append(vcam_btn)
@@ -637,6 +639,12 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._settings_page.connect("fps-limit-changed", self._on_fps_limit_changed)
         self._settings_page.connect(
             "grid-overlay-changed", self._on_grid_overlay_changed
+        )
+        self._settings_page.connect(
+            "overlay-opacity-changed", self._on_overlay_opacity_changed
+        )
+        self._settings_page.connect(
+            "controls-opacity-changed", self._on_controls_opacity_changed
         )
         # Restore virtual camera enabled state from settings
         if self._settings.get("virtual-camera-enabled"):
@@ -876,6 +884,12 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         else:
             self._immersion.uninhibit()
 
+    def _on_menu_popover_toggled(self, btn: Gtk.MenuButton, _pspec: object) -> None:
+        if btn.get_active():
+            self._immersion.inhibit()
+        else:
+            self._immersion.uninhibit()
+
     def _on_grid_btn_toggled(self, btn: Gtk.ToggleButton) -> None:
         visible = btn.get_active()
         self._preview.set_grid_visible(visible)
@@ -1013,6 +1027,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
     def _on_show_welcome_action(self, *_args) -> None:
         from ui.welcome_dialog import WelcomeDialog
         dialog = WelcomeDialog(self, self._settings)
+        self._immersion.inhibit()
+        dialog._dialog.connect("closed", lambda *_: self._immersion.uninhibit())
         dialog.present()
 
     def _set_zoom_level(self, index: int) -> None:
@@ -1496,6 +1512,101 @@ class BigDigicamWindow(Adw.ApplicationWindow):
     def _on_grid_overlay_changed(self, _page, visible: bool) -> None:
         self._preview.set_grid_visible(visible)
 
+    def _on_overlay_opacity_changed(self, _page, value: int) -> None:
+        self._apply_overlay_opacity(value)
+
+    def _on_controls_opacity_changed(self, _page, value: int) -> None:
+        self._apply_controls_opacity(value)
+
+    def _apply_overlay_opacity(self, percent: int) -> None:
+        """Regenerate gradient CSS for the top/bottom OSD bars."""
+        alpha = percent / 100.0
+        mid = alpha * 0.6  # mid-point is 60% of main opacity
+        css = (
+            f".osd-bar.top-bar {{"
+            f"  background: linear-gradient(to bottom,"
+            f"    rgba(0,0,0,{alpha:.2f}) 0%,"
+            f"    rgba(0,0,0,{mid:.2f}) 70%,"
+            f"    transparent 100%);"
+            f"}}\n"
+            f".osd-bar.bottom-bar {{"
+            f"  background: linear-gradient(to top,"
+            f"    rgba(0,0,0,{alpha:.2f}) 0%,"
+            f"    rgba(0,0,0,{mid:.2f}) 70%,"
+            f"    transparent 100%);"
+            f"}}"
+        )
+        if not hasattr(self, "_overlay_css_provider"):
+            self._overlay_css_provider = Gtk.CssProvider()
+            Gtk.StyleContext.add_provider_for_display(
+                Gdk.Display.get_default(),
+                self._overlay_css_provider,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+            )
+        self._overlay_css_provider.load_from_string(css)
+
+    def _apply_controls_opacity(self, percent: int) -> None:
+        """Adjust opacity of buttons/icons overlaid on the preview."""
+        alpha = percent / 100.0
+        css = (
+            f".osd-bar.top-bar button {{"
+            f"  opacity: {alpha:.2f};"
+            f"}}\n"
+            f".osd-bar.top-bar button:hover {{"
+            f"  opacity: 1.0;"
+            f"}}\n"
+            f".bottom-circle-btn {{"
+            f"  opacity: {alpha:.2f};"
+            f"}}\n"
+            f".bottom-circle-btn:hover {{"
+            f"  opacity: 1.0;"
+            f"}}\n"
+            f".mode-switcher {{"
+            f"  opacity: {alpha:.2f};"
+            f"}}\n"
+            f".mode-switcher:hover {{"
+            f"  opacity: 1.0;"
+            f"}}\n"
+            f".capture-btn {{"
+            f"  opacity: {alpha:.2f};"
+            f"}}\n"
+            f".capture-btn:hover {{"
+            f"  opacity: 1.0;"
+            f"}}\n"
+            f"button.zoom-btn {{"
+            f"  opacity: {alpha:.2f};"
+            f"}}\n"
+            f"button.zoom-btn:hover {{"
+            f"  opacity: 1.0;"
+            f"}}\n"
+            f"button.last-photo-btn {{"
+            f"  opacity: {alpha:.2f};"
+            f"}}\n"
+            f"button.last-photo-btn:hover {{"
+            f"  opacity: 1.0;"
+            f"}}\n"
+            f".record-button {{"
+            f"  opacity: {alpha:.2f};"
+            f"}}\n"
+            f".record-button:hover {{"
+            f"  opacity: 1.0;"
+            f"}}\n"
+            f".phone-webcam-button {{"
+            f"  opacity: {alpha:.2f};"
+            f"}}\n"
+            f".phone-webcam-button:hover {{"
+            f"  opacity: 1.0;"
+            f"}}"
+        )
+        if not hasattr(self, "_controls_css_provider"):
+            self._controls_css_provider = Gtk.CssProvider()
+            Gtk.StyleContext.add_provider_for_display(
+                Gdk.Display.get_default(),
+                self._controls_css_provider,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 2,
+            )
+        self._controls_css_provider.load_from_string(css)
+
     # -- Tools signals -------------------------------------------------------
 
     def _on_smile_captured(self, _page: Any, path: str) -> None:
@@ -1532,7 +1643,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             dialog.set_default_response("native")
             dialog.set_close_response("webcam")
             dialog.connect("response", self._on_capture_mode_response)
-            dialog.present(self)
+            self._immersion.present_dialog(dialog, self)
             return
 
         timer = self._settings.get("capture-timer")
@@ -1551,6 +1662,37 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             self._preview.start_countdown(timer, capture_fn)
             return
         capture_fn()
+
+    def _show_movie_mode_dialog(self, camera: CameraInfo) -> None:
+        """Show dialog when camera is in Movie mode and can't take stills."""
+        dialog = Adw.AlertDialog.new(
+            _("Camera in video mode"),
+            _(
+                "Your camera is set to Video/Movie mode. "
+                "Some cameras cannot take photos in this mode.\n\n"
+                "Switch the mode dial on your camera to a photo mode "
+                "(P, Av, Tv, M or Auto) and try again, or capture "
+                "a frame from the current preview."
+            ),
+        )
+        dialog.add_response("frame", _("Capture preview frame"))
+        dialog.add_response("retry", _("Try again"))
+        dialog.set_response_appearance("retry", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("retry")
+        dialog.set_close_response("frame")
+
+        def _on_response(_dlg: Adw.AlertDialog, resp: str) -> None:
+            # Always resume streaming first
+            self._active_camera = None
+            self._on_camera_selected(self._camera_selector, camera)
+
+            if resp == "frame":
+                # Wait for stream to stabilise, then grab a frame
+                GLib.timeout_add(2000, lambda: self._do_webcam_capture() or False)
+            # "retry" just resumes the preview — user clicks capture again
+
+        dialog.connect("response", _on_response)
+        self._immersion.present_dialog(dialog, self)
 
     def _do_webcam_capture(self) -> None:
         self._trigger_flash()
@@ -1593,7 +1735,29 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             import time as _time
             from utils import xdg
 
+            # Kill ALL gphoto2/ffmpeg processes to guarantee a clean USB bus
             self._camera_manager.get_backend(camera.backend).stop_streaming()
+
+            # Give the USB device time to be fully released after killing
+            # the streaming process — Canon DSLRs need this.
+            _time.sleep(2)
+
+            # Check if camera is stuck in Movie mode (some models can't
+            # capture stills in this mode).  Return a sentinel so the
+            # main thread can show a dialog instead of waiting for a
+            # futile 60-second timeout.
+            try:
+                port = camera.extra.get("port", camera.device_path)
+                res = subprocess.run(
+                    ["gphoto2", "--port", port,
+                     "--get-config", "autoexposuremode"],
+                    capture_output=True, text=True, timeout=8,
+                )
+                for line in res.stdout.splitlines():
+                    if line.startswith("Current:") and "Movie" in line:
+                        return "__movie_mode__"
+            except Exception:
+                pass
 
             timestamp = _time.strftime("%Y%m%d_%H%M%S")
             output_dir = xdg.photos_dir()
@@ -1613,6 +1777,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             return output_path if ok else None
 
         def _on_done(result: str | None) -> None:
+            if result == "__movie_mode__":
+                self._show_movie_mode_dialog(camera)
+                return
             if result:
                 self._show_notification(_("Photo saved!"), "success")
                 self._gallery.refresh()
@@ -1621,7 +1788,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                 self._show_notification(
                     _("Failed to capture photo."), "error"
                 )
-            # Resume streaming
+            # Resume streaming — clear active camera so the guard doesn't skip
+            self._active_camera = None
             self._preview.show_status(
                 _("Please wait…"),
                 _("Resuming camera streaming…"),
@@ -1638,7 +1806,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
     def _on_add_ip(self, *_args) -> None:
         dialog = IPCameraDialog()
         dialog.connect("camera-added", self._on_ip_camera_added)
-        dialog.present(self)
+        self._immersion.present_dialog(dialog, self)
 
     def _draw_phone_dot(self, area: Gtk.DrawingArea, cr, w: int, h: int) -> None:
         """Draw a colored status dot on the phone button."""
@@ -1669,7 +1837,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
     def _on_phone_camera(self, *_args) -> None:
         dialog = PhoneCameraDialog(self._phone_server)
-        dialog.present(self)
+        self._immersion.present_dialog(dialog, self)
 
     def _on_phone_disconnected(self, _server: PhoneCameraServer) -> None:
         """Remove phone camera after a delay (allows reconnection on rotation)."""
@@ -1723,7 +1891,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._camera_manager.add_ip_cameras(ip_list)
 
     def _on_about(self, *_args) -> None:
-        show_about(self)
+        from ui.about_dialog import create_about_dialog
+        dialog = create_about_dialog()
+        self._immersion.present_dialog(dialog, self)
 
     def _on_camera_error(self, _manager: CameraManager, message: str) -> None:
         self._show_notification(message, "error", 5000)
@@ -1787,7 +1957,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             device_path,
             blocking_apps,
         )
-        dialog.present(self)
+        self._immersion.present_dialog(dialog, self)
 
     def _on_device_busy_response(
         self,
@@ -2072,7 +2242,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             dialog.set_default_response("cancel")
             dialog.set_close_response("cancel")
             dialog.connect("response", self._on_close_response)
-            dialog.present(self)
+            self._immersion.present_dialog(dialog, self)
             return True  # block close
 
         self._cleanup_and_close()

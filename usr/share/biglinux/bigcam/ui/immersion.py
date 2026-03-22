@@ -112,6 +112,18 @@ class ImmersionController:
         if self._inhibit_count == 0:
             self._restart_timer()
 
+    def present_dialog(self, dialog, parent=None) -> None:
+        """Present an Adw.Dialog while inhibiting immersion.
+
+        Automatically uninhibits when the dialog is closed.
+        """
+        self.inhibit()
+        dialog.connect("closed", lambda *_: self.uninhibit())
+        if parent is not None:
+            dialog.present(parent)
+        else:
+            dialog.present()
+
     @property
     def is_immersed(self) -> bool:
         return self._is_immersed

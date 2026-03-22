@@ -112,6 +112,9 @@ class StreamEngine(GObject.Object):
         # Most-recent frame queued while the vcam pipeline is being built.
         # Tuple of (bgra_bytes, w, h) or None.
         self._vcam_pending_frame: tuple | None = None
+        # Latest frame for async vcam push (set by probe, consumed by idle)
+        self._vcam_latest_frame: tuple | None = None
+        self._vcam_idle_scheduled: bool = False
         # Background virtual camera pipelines (camera_id → pipeline)
         self._bg_vcam_pipelines: dict[str, Gst.Pipeline] = {}
 
@@ -216,7 +219,8 @@ class StreamEngine(GObject.Object):
                     or self._pan != 0.0 or self._tilt != 0.0)
         is_recording = self._video_recorder and self._video_recorder.is_recording
         # Fast path: no effects/overlays — only grab BGR every 10th frame for photos
-        if not has_work and not is_recording and self._frame_count % 10 != 0:
+        # BUT if virtual camera is active, process every frame for smooth output
+        if not has_work and not is_recording and not self._vcam_device and self._frame_count % 10 != 0:
             return Gst.PadProbeReturn.OK
 
         buf = info.get_buffer()
@@ -352,11 +356,10 @@ class StreamEngine(GObject.Object):
                         cv2.flip(processed, 1) if self._mirror else processed
                     )
                     # Feed effects-processed frame to virtual camera.
-                    # Always use BGRA (what the vcam appsrc caps declare) converted
-                    # from the BGR `processed` array — independent of source format.
+                    # Use _last_probe_bgr which already has mirror applied.
                     if self._vcam_device:
-                        vcam_bgra = cv2.cvtColor(processed, cv2.COLOR_BGR2BGRA)
-                        self._push_vcam(vcam_bgra.tobytes(), w, h)
+                        vcam_bgra = cv2.cvtColor(self._last_probe_bgr, cv2.COLOR_BGR2BGRA)
+                        self._schedule_vcam_push(vcam_bgra.tobytes(), w, h)
                     
                     # Push to video recorder
                     if self._video_recorder and self._video_recorder.is_recording:
@@ -400,11 +403,10 @@ class StreamEngine(GObject.Object):
                     # Push to video recorder
                     if is_recording:
                         self._video_recorder.write_frame(self._last_probe_bgr)
-                    # Feed unprocessed frame to virtual camera.
-                    # Convert bgr view to BGRA (vcam appsrc caps) for all source formats.
-                    if self._vcam_device and bgr is not None:
-                        vcam_bgra = cv2.cvtColor(bgr, cv2.COLOR_BGR2BGRA)
-                        self._push_vcam(vcam_bgra.tobytes(), w, h)
+                    # Feed frame to virtual camera (with mirror applied).
+                    if self._vcam_device and self._last_probe_bgr is not None:
+                        vcam_bgra = cv2.cvtColor(self._last_probe_bgr, cv2.COLOR_BGR2BGRA)
+                        self._schedule_vcam_push(vcam_bgra.tobytes(), w, h)
         except Exception as e:
             if self._probe_debug_count <= 5:
                 log.debug(f"paintable_probe error: {e}")
@@ -947,9 +949,10 @@ class StreamEngine(GObject.Object):
                 display_bgr = cv2.flip(self._last_probe_bgr, 1) if self._mirror else self._last_probe_bgr
                 bgra_out = cv2.cvtColor(display_bgr, cv2.COLOR_BGR2BGRA)
                 data = bgra_out.tobytes()
-            # Feed effects-processed (or original) frame to virtual camera
-            if self._vcam_device:
-                self._push_vcam(data, w, h)
+            # Feed frame to virtual camera (with mirror applied)
+            if self._vcam_device and self._last_probe_bgr is not None:
+                vcam_bgra = cv2.cvtColor(self._last_probe_bgr, cv2.COLOR_BGR2BGRA)
+                self._schedule_vcam_push(vcam_bgra.tobytes(), w, h)
             
             # Feed to video recorder
             if self._video_recorder and self._video_recorder.is_recording:
@@ -1001,8 +1004,9 @@ class StreamEngine(GObject.Object):
         if not device:
             return
         pipeline_str = (
-            "appsrc name=src emit-signals=false is-live=true format=time "
+            "appsrc name=src emit-signals=false is-live=true format=time block=false max-bytes=0 "
             f"caps=video/x-raw,format=BGRA,width={w},height={h},framerate=30/1 "
+            f"! queue max-size-buffers=2 leaky=downstream silent=true "
             f"! videoconvert n-threads={min(os.cpu_count() or 2, 4)} "
             "! video/x-raw,format=YUY2 "
             f"! v4l2sink device={device} sync=false"
@@ -1038,6 +1042,27 @@ class StreamEngine(GObject.Object):
             self._vcam_appsrc = None
             self._vcam_w = 0
             self._vcam_h = 0
+
+    def _schedule_vcam_push(self, bgra_bytes: bytes, w: int, h: int) -> None:
+        """Store frame and schedule async push to vcam on the main thread.
+
+        Called from GStreamer probe (streaming thread). Decouples vcam
+        push-buffer from the probe to prevent pipeline stalls if
+        v4l2sink causes backpressure.
+        """
+        self._vcam_latest_frame = (bgra_bytes, w, h)
+        if not self._vcam_idle_scheduled:
+            self._vcam_idle_scheduled = True
+            GLib.idle_add(self._vcam_idle_push)
+
+    def _vcam_idle_push(self) -> bool:
+        """GLib idle callback: push latest vcam frame."""
+        self._vcam_idle_scheduled = False
+        frame = self._vcam_latest_frame
+        self._vcam_latest_frame = None
+        if frame:
+            self._push_vcam(*frame)
+        return False  # Run only once
 
     def _push_vcam(self, bgra_bytes: bytes, w: int, h: int) -> None:
         """Push a BGRA frame to the virtual camera appsrc.

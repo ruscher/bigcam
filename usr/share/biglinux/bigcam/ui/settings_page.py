@@ -40,6 +40,8 @@ class SettingsPage(Gtk.ScrolledWindow):
         "resolution-changed": (GObject.SignalFlags.RUN_LAST, None, (str,)),
         "fps-limit-changed": (GObject.SignalFlags.RUN_LAST, None, (int,)),
         "grid-overlay-changed": (GObject.SignalFlags.RUN_LAST, None, (bool,)),
+        "overlay-opacity-changed": (GObject.SignalFlags.RUN_LAST, None, (int,)),
+        "controls-opacity-changed": (GObject.SignalFlags.RUN_LAST, None, (int,)),
         "help-tooltips-changed": (GObject.SignalFlags.RUN_LAST, None, (bool,)),
         "capture-timer-changed": (GObject.SignalFlags.RUN_LAST, None, (int,)),
     }
@@ -202,6 +204,40 @@ class SettingsPage(Gtk.ScrolledWindow):
         grid_row.set_active(self._settings.get("grid_overlay"))
         grid_row.connect("notify::active", self._on_grid_overlay)
         preview.add(grid_row)
+
+        # Gradient overlay opacity slider
+        opacity_row = Adw.ActionRow(
+            title=_("Overlay opacity"),
+            subtitle=_("Controls bar background darkness."),
+        )
+        opacity_row.add_prefix(Gtk.Image.new_from_icon_name("weather-clear-night-symbolic"))
+        self._opacity_scale = Gtk.Scale.new_with_range(
+            Gtk.Orientation.HORIZONTAL, 0, 100, 5
+        )
+        self._opacity_scale.set_value(self._settings.get("overlay-opacity"))
+        self._opacity_scale.set_hexpand(True)
+        self._opacity_scale.set_valign(Gtk.Align.CENTER)
+        self._opacity_scale.set_size_request(180, -1)
+        self._opacity_scale.connect("value-changed", self._on_overlay_opacity)
+        opacity_row.add_suffix(self._opacity_scale)
+        preview.add(opacity_row)
+
+        # Controls opacity slider
+        controls_opacity_row = Adw.ActionRow(
+            title=_("Controls opacity"),
+            subtitle=_("Transparency of the buttons over the preview."),
+        )
+        controls_opacity_row.add_prefix(Gtk.Image.new_from_icon_name("preferences-desktop-accessibility-symbolic"))
+        self._controls_opacity_scale = Gtk.Scale.new_with_range(
+            Gtk.Orientation.HORIZONTAL, 20, 100, 5
+        )
+        self._controls_opacity_scale.set_value(self._settings.get("controls-opacity"))
+        self._controls_opacity_scale.set_hexpand(True)
+        self._controls_opacity_scale.set_valign(Gtk.Align.CENTER)
+        self._controls_opacity_scale.set_size_request(180, -1)
+        self._controls_opacity_scale.connect("value-changed", self._on_controls_opacity)
+        controls_opacity_row.add_suffix(self._controls_opacity_scale)
+        preview.add(controls_opacity_row)
 
         content.append(preview)
 
@@ -438,6 +474,16 @@ class SettingsPage(Gtk.ScrolledWindow):
         active = row.get_active()
         self._settings.set("grid_overlay", active)
         self.emit("grid-overlay-changed", active)
+
+    def _on_overlay_opacity(self, scale: Gtk.Scale) -> None:
+        value = int(scale.get_value())
+        self._settings.set("overlay-opacity", value)
+        self.emit("overlay-opacity-changed", value)
+
+    def _on_controls_opacity(self, scale: Gtk.Scale) -> None:
+        value = int(scale.get_value())
+        self._settings.set("controls-opacity", value)
+        self.emit("controls-opacity-changed", value)
 
     @staticmethod
     def _open_directory(path: str) -> None:

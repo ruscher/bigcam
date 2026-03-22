@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-4.0.3-brightgreen.svg" alt="Version 4.0.3">
+  <img src="https://img.shields.io/badge/Version-4.0.4-brightgreen.svg" alt="Version 4.0.4">
   <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3">
   <img src="https://img.shields.io/badge/Platform-Linux-green.svg" alt="Platform: Linux">
   <img src="https://img.shields.io/badge/GTK-4.0-blue.svg" alt="GTK 4.0">
@@ -529,7 +529,7 @@ To add or update a translation:
 3. Compile with `msgfmt -o usr/share/locale/<lang>/LC_MESSAGES/bigcam.mo locale/<lang>.po`
 4. Submit a pull request
 
-Currently supported: bg, cs, da, de, el, en, es, et, fi, fr, he, hr, hu, is, it, ja, ko, nl, no, pl, pt, pt-BR, ro, ru, sk, sv, tr, uk, zh.
+Currently supported: bg, cs, da, de, el, en, es, et, fi, fr, he, hr, hu, is, it, ja, ko, nl, no, pl, pt, pt_BR, ro, ru, sk, sv, tr, uk, zh.
 
 ### Development
 

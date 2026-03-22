@@ -310,7 +310,12 @@ class CameraControlsPage(Gtk.ScrolledWindow):
 
     def _apply(self, ctrl: CameraControl, value: Any) -> None:
         if self._camera:
-            self._manager.set_control(self._camera, ctrl.id, value)
+            # Run v4l2-ctl subprocess in background to avoid blocking UI
+            camera = self._camera
+            threading.Thread(
+                target=lambda: self._manager.set_control(camera, ctrl.id, value),
+                daemon=True,
+            ).start()
             # Apply software zoom as fallback for cameras where V4L2 zoom is ineffective
             if ctrl.id == "zoom_absolute" and self._engine is not None:
                 v4l_min = ctrl.minimum or 0

@@ -60,10 +60,14 @@ class ImmersionController:
         # Blank cursor
         self._blank_cursor = Gdk.Cursor.new_from_name("none")
 
+        # Track whether the pointer is inside the window
+        self._pointer_inside: bool = False
+
         # --- Event controllers on the window level -------------------------
         motion = Gtk.EventControllerMotion()
-        motion.connect("motion", self._on_activity)
-        motion.connect("enter", self._on_activity)
+        motion.connect("motion", self._on_motion)
+        motion.connect("enter", self._on_pointer_enter)
+        motion.connect("leave", self._on_pointer_leave)
         window.add_controller(motion)
 
         key = Gtk.EventControllerKey()
@@ -130,10 +134,24 @@ class ImmersionController:
 
     # -- Event handlers -----------------------------------------------------
 
-    def _on_activity(self, *_args: object) -> None:
+    def _on_pointer_enter(self, *_args: object) -> None:
+        """Mouse entered the window — cancel hide timer and show UI."""
+        self._pointer_inside = True
         if self._is_immersed:
             self._show_ui()
+        self._cancel_timer()
+
+    def _on_pointer_leave(self, *_args: object) -> None:
+        """Mouse left the window — start inactivity timer to hide UI."""
+        self._pointer_inside = False
         self._restart_timer()
+
+    def _on_motion(self, *_args: object) -> None:
+        """Mouse moved inside the window — restore UI if hidden."""
+        if self._is_immersed:
+            self._show_ui()
+        # While pointer is inside, no need to restart hide timer
+        # (UI stays visible as long as pointer is in the window)
 
     def _on_key_activity(
         self,
@@ -149,11 +167,14 @@ class ImmersionController:
 
     # -- Timer management ---------------------------------------------------
 
-    def _restart_timer(self) -> None:
+    def _cancel_timer(self) -> None:
         if self._timer_id is not None:
             GLib.source_remove(self._timer_id)
             self._timer_id = None
-        if self._inhibit_count == 0:
+
+    def _restart_timer(self) -> None:
+        self._cancel_timer()
+        if self._inhibit_count == 0 and not self._pointer_inside:
             self._timer_id = GLib.timeout_add(
                 _INACTIVITY_MS, self._on_inactivity_timeout
             )

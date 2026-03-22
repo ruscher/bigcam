@@ -816,6 +816,9 @@ class GPhoto2Backend(CameraBackend):
 
     def capture_photo(self, camera: CameraInfo, output_path: str) -> bool:
         port = camera.extra.get("port", camera.device_path)
+        camera_arg = ["--port", port] if port else []
+        debug_log = "/tmp/gphoto2_capture_debug.log"
+
         for attempt in range(2):
             try:
                 self._kill_gvfs()
@@ -823,11 +826,15 @@ class GPhoto2Backend(CameraBackend):
                     self._release_usb_device(port)
                     time.sleep(2)
 
-                camera_arg = ["--port", port] if port else []
-                subprocess.run(
+                log.info(
+                    "capture_photo attempt %d: starting gphoto2 on port %s",
+                    attempt + 1, port,
+                )
+                result = subprocess.run(
                     [
                         "gphoto2",
                         *camera_arg,
+                        "--debug-logfile", debug_log,
                         "--capture-image-and-download",
                         "--filename",
                         output_path,
@@ -835,11 +842,34 @@ class GPhoto2Backend(CameraBackend):
                         "--keep",
                     ],
                     capture_output=True,
-                    check=True,
-                    timeout=60,
+                    text=True,
+                    timeout=30,
                 )
-                if os.path.isfile(output_path):
+                log.info(
+                    "capture_photo attempt %d: rc=%d stdout=%s stderr=%s",
+                    attempt + 1, result.returncode,
+                    result.stdout[:200], result.stderr[:200],
+                )
+                if result.returncode == 0 and os.path.isfile(output_path):
                     return True
+            except subprocess.TimeoutExpired as exc:
+                log.warning("capture_photo attempt %d timed out", attempt + 1)
+                # Log debug output from gphoto2 to understand where it hung
+                try:
+                    with open(debug_log) as f:
+                        lines = f.readlines()
+                    tail = "".join(lines[-20:]) if lines else "(empty)"
+                    log.warning("gphoto2 debug log tail:\n%s", tail)
+                except Exception:
+                    pass
+                # Kill the timed-out process
+                if port:
+                    safe_port = re.escape(port)
+                    subprocess.run(
+                        ["pkill", "-9", "-f", f"gphoto2.*{safe_port}"],
+                        capture_output=True,
+                    )
+                time.sleep(2)
             except Exception as exc:
                 log.warning("capture_photo attempt %d failed: %s", attempt + 1, exc)
                 if attempt == 0:

@@ -22,6 +22,8 @@ _DEFAULTS: dict[str, object] = {
     "mirror_preview": False,
     "capture-timer": 0,
     "grid_overlay": False,
+    "overlay-opacity": 75,
+    "controls-opacity": 90,
     # Photo
     "photo-directory": "",
     "photo-format": "jpg",
@@ -37,7 +39,7 @@ _DEFAULTS: dict[str, object] = {
     "hotplug_enabled": True,
     "last-camera-id": "",
     # Virtual camera
-    "virtual-camera-enabled": False,
+    "virtual-camera-enabled": True,
     # IP Cameras (list serialised as JSON array)
     "ip_cameras": [],
 }

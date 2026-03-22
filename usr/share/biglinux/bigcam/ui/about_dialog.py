@@ -20,8 +20,8 @@ from constants import (
 from utils.i18n import _
 
 
-def show_about(parent: Gtk.Window) -> None:
-    """Present the standard Adwaita about dialog."""
+def create_about_dialog() -> Adw.AboutDialog:
+    """Create the standard Adwaita about dialog (caller presents it)."""
     dialog = Adw.AboutDialog.new()
     dialog.set_application_name(APP_NAME)
     dialog.set_version(APP_VERSION)
@@ -33,4 +33,9 @@ def show_about(parent: Gtk.Window) -> None:
     dialog.set_license_type(Gtk.License.GPL_3_0)
     dialog.set_developers(["BigLinux Team"])
     dialog.set_comments(_("Universal webcam control center for Linux."))
-    dialog.present(parent)
+    return dialog
+
+
+def show_about(parent: Gtk.Window) -> None:
+    """Present the standard Adwaita about dialog."""
+    create_about_dialog().present(parent)

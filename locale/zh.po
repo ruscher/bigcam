@@ -248,6 +248,22 @@ msgstr ""
 msgid "Show a rule-of-thirds grid over the preview."
 msgstr ""
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 210
+msgid "Overlay opacity"
+msgstr "叠加不透明度"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 211
+msgid "Controls bar background darkness."
+msgstr "控制栏背景黑暗度。"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 227
+msgid "Controls opacity"
+msgstr "控制不透明度"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 228
+msgid "Transparency of the buttons over the preview."
+msgstr "按钮在预览上的透明度。"
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 192
 #: usr/share/biglinux/bigcam/ui/settings_page.py:192
 msgid "Camera"
@@ -1457,6 +1473,25 @@ msgstr ""
 #: usr/share/biglinux/bigcam/ui/window.py:580
 msgid "Camera photo (full resolution)"
 msgstr ""
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1669
+msgid "Camera in video mode"
+msgstr "视频模式下的相机"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1671
+msgid ""
+"Your camera is set to Video/Movie mode. Some cameras cannot take photos in this mode.\n"
+"\n"
+"Switch the mode dial on your camera to a photo mode (P, Av, Tv, M or Auto) and try again, or "
+"capture a frame from the current preview."
+msgstr ""
+"您的相机已设置为视频/电影模式。某些相机在此模式下无法拍照。\n"
+"\n"
+"将相机的模式拨轮切换到照片模式（P、Av、Tv、M或自动），然后再试一次，或从当前预览中捕捉一帧。"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1678
+msgid "Capture preview frame"
+msgstr "捕获预览帧"
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 659
 #: usr/share/biglinux/bigcam/ui/window.py:599

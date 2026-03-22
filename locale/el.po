@@ -249,6 +249,22 @@ msgstr ""
 msgid "Show a rule-of-thirds grid over the preview."
 msgstr ""
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 210
+msgid "Overlay opacity"
+msgstr "Διαφάνεια επικάλυψης"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 211
+msgid "Controls bar background darkness."
+msgstr "Σκοτάδι φόντου γραμμής ελέγχων."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 227
+msgid "Controls opacity"
+msgstr "Ελέγχει την αδιαφάνεια"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 228
+msgid "Transparency of the buttons over the preview."
+msgstr "Διαφάνεια των κουμπιών πάνω από την προεπισκόπηση."
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 192
 #: usr/share/biglinux/bigcam/ui/settings_page.py:192
 msgid "Camera"
@@ -1460,6 +1476,27 @@ msgstr ""
 #: usr/share/biglinux/bigcam/ui/window.py:580
 msgid "Camera photo (full resolution)"
 msgstr ""
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1669
+msgid "Camera in video mode"
+msgstr "Κάμερα σε λειτουργία βίντεο"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1671
+msgid ""
+"Your camera is set to Video/Movie mode. Some cameras cannot take photos in this mode.\n"
+"\n"
+"Switch the mode dial on your camera to a photo mode (P, Av, Tv, M or Auto) and try again, or "
+"capture a frame from the current preview."
+msgstr ""
+"Η κάμερά σας είναι ρυθμισμένη σε λειτουργία Βίντεο/Ταινίας. Ορισμένες κάμερες δεν μπορούν να "
+"τραβήξουν φωτογραφίες σε αυτή τη λειτουργία.\n"
+"\n"
+"Αλλάξτε τον επιλογέα λειτουργίας της κάμερας σε λειτουργία φωτογραφίας (P, Av, Tv, M ή Αυτόματη) "
+"και δοκιμάστε ξανά, ή καταγράψτε ένα καρέ από την τρέχουσα προεπισκόπηση."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1678
+msgid "Capture preview frame"
+msgstr "Στιγμιότυπο προεπισκόπησης καρέ"
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 659
 #: usr/share/biglinux/bigcam/ui/window.py:599

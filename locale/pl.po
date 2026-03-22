@@ -250,6 +250,22 @@ msgstr ""
 msgid "Show a rule-of-thirds grid over the preview."
 msgstr ""
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 210
+msgid "Overlay opacity"
+msgstr "Przezroczystość nakładki"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 211
+msgid "Controls bar background darkness."
+msgstr "Tło paska sterowania ciemności."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 227
+msgid "Controls opacity"
+msgstr "Kontroluje przezroczystość"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 228
+msgid "Transparency of the buttons over the preview."
+msgstr "Przezroczystość przycisków nad podglądem."
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 192
 #: usr/share/biglinux/bigcam/ui/settings_page.py:192
 msgid "Camera"
@@ -1459,6 +1475,26 @@ msgstr ""
 #: usr/share/biglinux/bigcam/ui/window.py:580
 msgid "Camera photo (full resolution)"
 msgstr ""
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1669
+msgid "Camera in video mode"
+msgstr "Kamera w trybie wideo"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1671
+msgid ""
+"Your camera is set to Video/Movie mode. Some cameras cannot take photos in this mode.\n"
+"\n"
+"Switch the mode dial on your camera to a photo mode (P, Av, Tv, M or Auto) and try again, or "
+"capture a frame from the current preview."
+msgstr ""
+"Twoja kamera jest ustawiona na tryb wideo/film. Niektóre kamery nie mogą robić zdjęć w tym trybie.\n"
+"\n"
+"Przełącz pokrętło trybu na swojej kamerze na tryb zdjęć (P, Av, Tv, M lub Auto) i spróbuj ponownie, "
+"lub uchwyć klatkę z aktualnego podglądu."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1678
+msgid "Capture preview frame"
+msgstr "Zrzut podglądu klatki"
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 659
 #: usr/share/biglinux/bigcam/ui/window.py:599

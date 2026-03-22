@@ -248,6 +248,22 @@ msgstr ""
 msgid "Show a rule-of-thirds grid over the preview."
 msgstr ""
 # 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 210
+msgid "Overlay opacity"
+msgstr "Þéttleiki yfirlagðs"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 211
+msgid "Controls bar background darkness."
+msgstr "Stillingar fyrir myrkur á bakgrunni stjórnborðs."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 227
+msgid "Controls opacity"
+msgstr "Stýrir gegnsæi"
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 228
+msgid "Transparency of the buttons over the preview."
+msgstr "Gagnsæi hnappanna yfir forsýninguna."
+# 
 # File: bigcam/usr/share/biglinux/bigcam/ui/settings_page.py, line: 192
 #: usr/share/biglinux/bigcam/ui/settings_page.py:192
 msgid "Camera"
@@ -1463,6 +1479,27 @@ msgstr ""
 #: usr/share/biglinux/bigcam/ui/window.py:580
 msgid "Camera photo (full resolution)"
 msgstr ""
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1669
+msgid "Camera in video mode"
+msgstr "Kamera í vídeóham."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1671
+msgid ""
+"Your camera is set to Video/Movie mode. Some cameras cannot take photos in this mode.\n"
+"\n"
+"Switch the mode dial on your camera to a photo mode (P, Av, Tv, M or Auto) and try again, or "
+"capture a frame from the current preview."
+msgstr ""
+"Kameran þín er stillt á vídeó/kvikmyndastillingu. Sumir myndavélar geta ekki tekið myndir í þessari "
+"stillingu.\n"
+"\n"
+"Breyttu stillingunni á myndavélinni þinni í myndastillingu (P, Av, Tv, M eða Auto) og reyndu aftur, "
+"eða taktu ramma úr núverandi forsýningu."
+# 
+# File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 1678
+msgid "Capture preview frame"
+msgstr "Fangið forsýningaramma"
 # 
 # File: bigcam/usr/share/biglinux/bigcam/ui/window.py, line: 659
 #: usr/share/biglinux/bigcam/ui/window.py:599

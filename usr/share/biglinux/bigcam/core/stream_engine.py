@@ -592,6 +592,8 @@ class StreamEngine(GObject.Object):
         base_pipeline = f"{gst_source} ! {suffix}"
 
         if self._try_start_paintable(base_pipeline):
+            # Apply anti-flicker defaults (e.g. power_line_frequency) in background
+            self._apply_anti_flicker_async()
             # Resolve vcam device in background to avoid blocking the UI
             self._resolve_vcam_async()
             return True
@@ -612,6 +614,7 @@ class StreamEngine(GObject.Object):
                 v4l2_source = backend._v4l2_gst_source(camera.device_path, camera, fmt_obj)
                 fallback_pipeline = f"{v4l2_source} ! {suffix}"
                 if self._try_start_paintable(fallback_pipeline):
+                    self._apply_anti_flicker_async()
                     self._resolve_vcam_async()
                     return True
 
@@ -991,6 +994,17 @@ class StreamEngine(GObject.Object):
         return False
 
     # -- async helpers for non-blocking pipeline setup -----------------------
+
+    def _apply_anti_flicker_async(self) -> None:
+        """Apply anti-flicker V4L2 defaults in a background thread."""
+        camera = self._current_camera
+        if not camera or not camera.device_path:
+            return
+        threading.Thread(
+            target=self._manager.apply_anti_flicker,
+            args=(camera,),
+            daemon=True,
+        ).start()
 
     def _resolve_vcam_async(self) -> None:
         """Resolve the virtual camera device in a background thread,

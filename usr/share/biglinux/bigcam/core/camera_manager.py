@@ -193,6 +193,11 @@ class CameraManager(GObject.Object):
         if backend:
             backend.reset_all_controls(camera, controls)
 
+    def apply_anti_flicker(self, camera: CameraInfo) -> None:
+        backend = self.get_backend(camera.backend)
+        if backend and hasattr(backend, "apply_anti_flicker"):
+            backend.apply_anti_flicker(camera)
+
     # -- gstreamer proxy -----------------------------------------------------
 
     def get_gst_source(self, camera: CameraInfo, fmt: VideoFormat | None = None) -> str:

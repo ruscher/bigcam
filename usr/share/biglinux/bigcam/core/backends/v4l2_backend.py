@@ -352,6 +352,59 @@ class V4L2Backend(CameraBackend):
         except (subprocess.CalledProcessError, FileNotFoundError):
             return False
 
+    def apply_anti_flicker(self, camera: CameraInfo) -> None:
+        """Auto-set power_line_frequency if disabled (value 0).
+
+        Detects the appropriate frequency (50/60 Hz) from the system
+        timezone. Safe to call from a background thread.
+        """
+        if not camera.device_path:
+            return
+        try:
+            result = subprocess.run(
+                ["v4l2-ctl", "-d", camera.device_path,
+                 "--get-ctrl", "power_line_frequency"],
+                capture_output=True, text=True, timeout=3,
+            )
+            if result.returncode != 0:
+                return
+            # Output: "power_line_frequency: 0" (0=Disabled, 1=50Hz, 2=60Hz)
+            current = int(result.stdout.strip().split(":")[-1].strip())
+            if current != 0:
+                return  # already configured, don't override
+        except Exception:
+            return
+
+        freq = self._detect_power_line_freq()
+        if self.set_control(camera, "power_line_frequency", freq):
+            hz = "60" if freq == 2 else "50"
+            log.info("Anti-flicker: set power_line_frequency=%s (%s Hz) on %s",
+                     freq, hz, camera.device_path)
+
+    @staticmethod
+    def _detect_power_line_freq() -> int:
+        """Detect power line frequency from system timezone.
+
+        Returns 2 (60 Hz) for the Americas, 1 (50 Hz) elsewhere.
+        """
+        try:
+            tz_link = os.readlink("/etc/localtime")
+            # e.g. /usr/share/zoneinfo/America/Sao_Paulo
+            parts = tz_link.split("/zoneinfo/")
+            if len(parts) == 2:
+                region = parts[1].split("/")[0]
+                if region == "America":
+                    return 2  # 60 Hz
+                return 1  # 50 Hz
+        except OSError:
+            pass
+        # Fallback: check TZ environment variable
+        tz_env = os.environ.get("TZ", "")
+        if tz_env.startswith("America/"):
+            return 2
+        # Default: 50 Hz (most common worldwide)
+        return 1
+
     # -- gstreamer -----------------------------------------------------------
 
     def get_gst_source(self, camera: CameraInfo, fmt: VideoFormat | None = None) -> str:

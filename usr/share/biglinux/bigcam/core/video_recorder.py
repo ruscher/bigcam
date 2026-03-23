@@ -45,6 +45,24 @@ class VideoRecorder:
         self._w = 0
         self._h = 0
         self._start_time = 0
+        # Configurable codec/container/bitrate
+        self._video_codec = "h264"
+        self._audio_codec = "opus"
+        self._container = "mkv"
+        self._video_bitrate = 8000
+
+    def configure(
+        self,
+        video_codec: str = "h264",
+        audio_codec: str = "opus",
+        container: str = "mkv",
+        video_bitrate: int = 8000,
+    ) -> None:
+        """Set recording codec/container/bitrate preferences."""
+        self._video_codec = video_codec
+        self._audio_codec = audio_codec
+        self._container = container
+        self._video_bitrate = max(500, min(50000, video_bitrate))
 
     @property
     def is_recording(self) -> bool:
@@ -81,7 +99,8 @@ class VideoRecorder:
 
         if filename is None:
             timestamp = time.strftime("%Y%m%d_%H%M%S")
-            filename = f"bigcam_{timestamp}.mkv"
+            ext = self._container_ext()
+            filename = f"bigcam_{timestamp}{ext}"
 
         output_dir = xdg.videos_dir()
         os.makedirs(output_dir, exist_ok=True)
@@ -104,19 +123,73 @@ class VideoRecorder:
         return self._output_path
 
     def _pick_encoder_str(self) -> str:
-        """Return the encoder element string, trying hw first."""
-        candidates = [
-            ("vaapih264enc", "rate-control=2 bitrate=8000"),
-            ("vah264enc", "rate-control=2 bitrate=8000"),
-        ]
-        for name, props in candidates:
-            if Gst.ElementFactory.find(name):
-                log.info("Using hardware encoder for recording: %s", name)
-                return f"{name} {props} ! h264parse"
+        """Return the encoder element string based on configured codec."""
+        br = self._video_bitrate
+        codec = self._video_codec
 
-        # Software fallback
-        log.info("Using software encoder for recording: x264enc")
-        return "x264enc tune=4 speed-preset=3 bitrate=8000 key-int-max=60 bframes=0 threads=0 ! h264parse"
+        if codec == "h265":
+            hw = [
+                ("vaapih265enc", f"rate-control=2 bitrate={br}"),
+                ("vah265enc", f"rate-control=2 bitrate={br}"),
+            ]
+            for name, props in hw:
+                if Gst.ElementFactory.find(name):
+                    log.info("Using hardware H.265 encoder: %s", name)
+                    return f"{name} {props} ! h265parse"
+            log.info("Using software H.265 encoder: x265enc")
+            return f"x265enc bitrate={br} speed-preset=3 ! h265parse"
+
+        if codec == "vp9":
+            log.info("Using VP9 encoder: vp9enc")
+            return f"vp9enc target-bitrate={br * 1000} cpu-used=4 deadline=1 threads=4"
+
+        if codec == "mjpeg":
+            log.info("Using MJPEG encoder: jpegenc")
+            return "jpegenc quality=90"
+
+        # Default: H.264
+        hw = [
+            ("vaapih264enc", f"rate-control=2 bitrate={br}"),
+            ("vah264enc", f"rate-control=2 bitrate={br}"),
+        ]
+        for name, props in hw:
+            if Gst.ElementFactory.find(name):
+                log.info("Using hardware H.264 encoder: %s", name)
+                return f"{name} {props} ! h264parse"
+        log.info("Using software H.264 encoder: x264enc")
+        return f"x264enc tune=4 speed-preset=3 bitrate={br} key-int-max=60 bframes=0 threads=0 ! h264parse"
+
+    def _pick_audio_encoder_str(self) -> str:
+        """Return the audio encoder element string based on configured codec."""
+        codec = self._audio_codec
+        if codec == "aac":
+            for name in ("fdkaacenc", "avenc_aac", "voaacenc"):
+                if Gst.ElementFactory.find(name):
+                    log.info("Using AAC encoder: %s", name)
+                    return name
+            log.warning("No AAC encoder found, falling back to opusenc")
+            return "opusenc"
+        if codec == "mp3":
+            log.info("Using MP3 encoder: lamemp3enc")
+            return "lamemp3enc"
+        if codec == "vorbis":
+            log.info("Using Vorbis encoder: vorbisenc")
+            return "vorbisenc"
+        # Default: Opus
+        return "opusenc"
+
+    def _pick_muxer_str(self) -> str:
+        """Return the muxer element string based on configured container."""
+        container = self._container
+        if container == "webm":
+            return "webmmux"
+        if container == "mp4":
+            return "mp4mux"
+        return "matroskamux"
+
+    def _container_ext(self) -> str:
+        """Return file extension for the configured container."""
+        return {"webm": ".webm", "mp4": ".mp4"}.get(self._container, ".mkv")
 
     def _ensure_pipeline(self, w: int, h: int) -> bool:
         if self._pipeline:
@@ -125,6 +198,8 @@ class VideoRecorder:
         self._w = w
         self._h = h
         enc_str = self._pick_encoder_str()
+        audio_enc = self._pick_audio_encoder_str()
+        muxer = self._pick_muxer_str()
         audio_str = ""
         if self._record_audio:
             extra_devs = self._audio_source_devices
@@ -137,7 +212,7 @@ class VideoRecorder:
             audio_str = (
                 "audiomixer name=amix latency=500000000 ! "
                 "queue max-size-time=2000000000 leaky=downstream ! audioconvert ! "
-                "audioresample ! audiorate ! opusenc ! mux. "
+                f"audioresample ! audiorate ! {audio_enc} ! mux. "
             )
 
             # System Microfone (Default source)
@@ -177,7 +252,7 @@ class VideoRecorder:
             f"caps=video/x-raw,format=BGR,width={w},height={h},framerate=30/1 ! "
             f"queue max-size-buffers=30 max-size-time=1000000000 leaky=downstream ! "
             f"videoconvert ! {enc_str} ! "
-            f"matroskamux name=mux ! filesink location=\"{escaped}\" "
+            f"{muxer} name=mux ! filesink location=\"{escaped}\" "
             f"{audio_str}"
         )
 
@@ -350,10 +425,11 @@ class VideoRecorder:
         return path
 
     def _remux_container(self, path: str) -> None:
-        """Remux MKV to fix container metadata (duration, seek cues)."""
+        """Remux container to fix metadata (duration, seek cues)."""
         if not os.path.isfile(path):
             return
-        tmp = path + ".remux.mkv"
+        ext = self._container_ext()
+        tmp = path + f".remux{ext}"
         try:
             result = subprocess.run(
                 ["ffmpeg", "-y", "-i", path, "-c", "copy", tmp],

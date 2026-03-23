@@ -57,6 +57,12 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._stream_engine.mirror = bool(self._settings.get("mirror_preview"))
         self._photo_capture = PhotoCapture(self._camera_manager)
         self._video_recorder = VideoRecorder(self._camera_manager)
+        self._video_recorder.configure(
+            video_codec=self._settings.get("recording-video-codec"),
+            audio_codec=self._settings.get("recording-audio-codec"),
+            container=self._settings.get("recording-container"),
+            video_bitrate=self._settings.get("recording-video-bitrate"),
+        )
         self._stream_engine._video_recorder = self._video_recorder
 
         self._audio_monitor = AudioMonitor()
@@ -996,6 +1002,14 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             self._timer_btn.add_css_class("timer-active")
             self._update_tooltip(self._timer_btn, _("Capture timer: %ds") % value)
 
+    def _on_recording_config_changed(self, _page: object) -> None:
+        self._video_recorder.configure(
+            video_codec=self._settings.get("recording-video-codec"),
+            audio_codec=self._settings.get("recording-audio-codec"),
+            container=self._settings.get("recording-container"),
+            video_bitrate=self._settings.get("recording-video-bitrate"),
+        )
+
     def _set_tooltips_enabled(self, enabled: bool) -> None:
         for widget, tooltip_text in self._tooltip_widgets:
             widget.set_tooltip_text(tooltip_text if enabled else None)
@@ -1259,6 +1273,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._settings_page._vc_toggle_row.connect("notify::active", self._on_settings_vcam_changed)
         self._settings_page.connect("help-tooltips-changed", self._on_help_tooltips_changed)
         self._settings_page.connect("capture-timer-changed", self._on_capture_timer_changed)
+        self._settings_page.connect("recording-config-changed", self._on_recording_config_changed)
         self.connect("close-request", self._on_close)
         self.connect("map", self._on_window_mapped)
 

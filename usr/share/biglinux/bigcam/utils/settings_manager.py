@@ -40,6 +40,11 @@ _DEFAULTS: dict[str, object] = {
     "last-camera-id": "",
     # Virtual camera
     "virtual-camera-enabled": True,
+    # Recording
+    "recording-video-codec": "h264",
+    "recording-audio-codec": "opus",
+    "recording-container": "mkv",
+    "recording-video-bitrate": 8000,
     # IP Cameras (list serialised as JSON array)
     "ip_cameras": [],
 }

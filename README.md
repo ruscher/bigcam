@@ -2,7 +2,7 @@
   <img src="usr/share/biglinux/bigcam/icons/bigcam.svg" alt="BigCam" width="128" height="128">
 </p>
 
-<h1 align="center">BigCam 4.1.0</h1>
+<h1 align="center">BigCam 4.2.0</h1>
 
 <p align="center">
   <b>The universal webcam control center for Linux — use any camera, including your smartphone, as a professional webcam. No expensive apps needed.</b>
@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-4.1.0-brightgreen.svg" alt="Version 4.1.0">
+  <img src="https://img.shields.io/badge/Version-4.2.0-brightgreen.svg" alt="Version 4.2.0">
   <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3">
   <img src="https://img.shields.io/badge/Platform-Linux-green.svg" alt="Platform: Linux">
   <img src="https://img.shields.io/badge/GTK-4.0-blue.svg" alt="GTK 4.0">
@@ -44,55 +44,91 @@
 
 **Version 4.0** was a complete UX overhaul — redesigned bottom bar with quick-access toggle buttons (QR scanner, smile capture, virtual camera, mirror), welcome screen dialog for first-time users, help-on-hover tooltips system, always-on-top window pin (Wayland-compatible via KWin D-Bus), fullscreen mode, capture timer with bi-directional sync between header and settings, window-level notification banner (Adw.Banner), mode-aware "last media" thumbnail (photo/video with ffmpeg preview), gPhoto2 capture flow improvements (mode dialog before timer), MediaPipe-powered background blur with real person segmentation (replacing the old Haar cascade face detection), zoom/pan/tilt/sharpness/backlight for gPhoto2 and IP camera pipelines, recording timer overlay, flash effect on capture, and a complete CSS restructuring.
 
-**Version 4.1** (current) is a performance and feature refinement release focused on the image processing pipeline, barcode scanning, and packaging:
+**Version 4.0** consolidated all improvements into a single major release: barcode scanner (zbar), recording codec selector (H.264/H.265/VP9/MJPEG with HW acceleration), camera control profiles, control dependencies (auto-exposure/white-balance/focus), SpinButton on V4L2 integer controls, anti-flicker auto-set, effect pipeline optimizations, CSD window controls, and a full dependency audit.
 
-- **Barcode scanner**: Real-time 1D barcode detection via [zbar](https://github.com/mchehab/zbar) integrated alongside the existing QR code scanner. Supports EAN-13, EAN-8, UPC-A, UPC-E, Code 128, Code 39, Code 93, Codabar, ITF, ISBN-10, ISBN-13, DataBar, and PDF417. Detected barcodes are displayed in a contextual dialog with one-click copy.
-- **Effect pipeline performance**: Beauty/Soft Skin and Denoise effects now downscale frames > 480p to 50% before `bilateralFilter` processing, yielding ~4× throughput improvement on 1080p streams with negligible quality loss.
-- **Full-range GaussianBlur**: Detail Enhance, Pencil Sketch, and Stylization effects replaced the capped `ksize` approach (`min(int(sigma_s), 31)`) with `GaussianBlur((0,0), sigmaX=sigma_s/6)`, eliminating the hard 31px kernel ceiling and enabling smooth response across the entire Sigma S (0–200) range.
-- **Pencil Sketch detail control**: The `sigma_r` parameter now controls Canny edge blending — lower values overlay stronger edge lines, higher values produce softer sketches. Previously, `sigma_r` was registered but never read by the sketch function.
-- **Painting/Stylization coherence**: Edge detection runs on the smoothed frame (not the original), producing edges consistent with the visible color quantization. The adaptive threshold block size now scales with `sigma_s` instead of using a fixed `9`, and `GaussianBlur` uses `sigmaX` for proper kernel behavior.
-- **Vignette precision**: Parameter range changed from float 0.0–1.0 to integer 10–100 with internal `/100.0` normalization, providing finer slider control in the UI.
-- **Phone camera portrait fix**: Embedded CSS now constrains the video container to `max-height: 50vh` in portrait orientation, preventing the video feed from pushing control buttons off-screen on narrow phone displays.
-- **Dependency audit**: PKGBUILD updated with complete dependency list — all runtime packages now required (`depends`), no optional dependencies. Added `python-opencv`, `python-numpy`, `python-aiohttp`, `python-qrcode`, `libcamera`, `zbar`, `gst-plugins-bad-libs`, and `gst-plugins-ugly`.
+**Version 4.2.0** (current) focused on performance and stability:
+
+- **OpenCV V4L2 direct capture**: Replaced GStreamer pipeline with native OpenCV VideoCapture using V4L2 mmap backend for USB cameras. Eliminates the flickering, stuttering, and frame drops that plagued the GStreamer pipeline on USB 2.0 hardware. GStreamer remains as a fallback for non-V4L2 sources.
+- **Background capture thread**: Dedicated daemon thread handles blocking `cap.read()` calls, keeping the GTK main loop responsive. Render timer on the main thread picks up the latest frame at display refresh rate.
+- **Nix support**: Added `flake.nix`, `default.nix`, and `.envrc` for reproducible builds and development environments via Nix.
+- **About dialog**: Now features the project's origin story and credits the original authors (Rafael Ruscher and Barnabé di Kartola).
+- **CSD button fix**: Window control buttons (minimize, maximize, close) no longer show hover highlight artifacts.
+- **JPEG warning suppression**: Corrupt JPEG data warnings from libjpeg-turbo are silenced during capture. OpenCV internal log level set to ERROR.
+- **Project cleanup**: Removed 125+ unnecessary files (backup files, legacy artifacts, duplicate assets).
 
 We are grateful to Rafael and Barnabé for starting this journey.
 
 ---
 
-## What's New in 4.1.0
+## What's New in 4.2.0
+
+### OpenCV V4L2 Direct Capture
+
+The GStreamer pipeline for USB cameras has been replaced by native OpenCV VideoCapture with V4L2 mmap backend. This is the same approach used by guvcview — direct V4L2 buffer access without the complexity of GStreamer's push-based pipeline. The result is zero flickering, zero stuttering, and zero frame drops, even on USB 2.0 hardware sharing bandwidth with other devices.
+
+A dedicated background thread handles blocking `cap.read()` calls while a main-thread render timer picks up the latest frame at display refresh rate. GStreamer remains available as a fallback for non-V4L2 sources (gPhoto2, libcamera, PipeWire, IP cameras).
+
+### Nix Support
+
+BigCam now ships `flake.nix`, `default.nix`, and `.envrc` for reproducible builds and development environments via Nix. All runtime dependencies (GTK4, Adwaita, GStreamer, FFmpeg, OpenCV, v4l-utils, gPhoto2, PipeWire, zbar) are properly declared.
+
+### About Dialog
+
+The About dialog now tells BigCam's origin story and credits the original authors — Rafael Ruscher and Barnabé di Kartola.
+
+### Previous (4.0)
+
+### Recording Codec & Container Selector
+
+Full control over recording format, accessible in Settings → Recording:
+
+| Setting | Options | Default |
+|---------|---------|--------|
+| **Video Codec** | H.264 (HW/SW), H.265 (HW/SW), VP9, MJPEG | H.264 |
+| **Audio Codec** | Opus, AAC, MP3, Vorbis | Opus |
+| **Container** | MKV, WebM, MP4 | MKV |
+| **Bitrate** | 500–50,000 kbps | 8,000 kbps |
+
+Hardware-accelerated encoders (VA-API/VA) are preferred automatically, with software fallbacks (x264enc, x265enc) when unavailable. Settings are persisted and applied in real-time — no restart required.
+
+### Camera Control Profiles
+
+Save and restore per-camera V4L2 control presets:
+
+- **Save Profile**: Captures all current control values (brightness, contrast, exposure, etc.) into a named JSON preset.
+- **Load Profile**: Instantly applies a saved preset to the camera.
+- **Delete Profile**: Removes a saved preset.
+- **Hardware Defaults**: One-click reset of all controls to factory default values.
+
+Profiles are stored per-camera in `~/.config/bigcam/profiles/<camera_name>/`.
+
+### Control Dependencies
+
+Controls that depend on auto modes are now properly disabled/enabled:
+
+- `auto_exposure` → disables `exposure_time_absolute` / `exposure_absolute` when in Aperture Priority
+- `white_balance_automatic` → disables `white_balance_temperature` when enabled
+- `focus_auto` → disables `focus_absolute` when enabled
+
+### SpinButton on Integer Controls
+
+V4L2 integer controls now display both a slider (for quick adjustment) and a numeric SpinButton (for precise value entry) side by side.
+
+### Anti-Flicker Auto-Set
+
+Automatically sets `power_line_frequency` based on the system timezone when the camera has it disabled (value 0). Americas → 60Hz, rest of world → 50Hz. Does not override manual user settings.
 
 ### Barcode Scanner
 
-Real-time 1D barcode detection via [zbar](https://github.com/mchehab/zbar) integrated into the existing scanning pipeline. The scanner runs on every frame when QR detection is active, falling back to barcode scanning when no QR code is found. Supports EAN-13, EAN-8, UPC-A, UPC-E, Code 128, Code 39, Code 93, Codabar, Interleaved 2 of 5 (ITF), ISBN-10/13, GS1 DataBar, and PDF417. Detected barcodes open the same contextual dialog as QR codes, with a "Copy Code" action button.
-
-**Technical implementation**: `zbar.ImageScanner` is initialized with QR decoding disabled (to avoid duplicating WeChatQRCode's work) and receives the grayscale frame already computed for QR detection. The scanner converts the NumPy array to a `zbar.Image` (`Y800` format) and calls `scan()`. Barcode results are prefixed with `"barcode:"` and parsed by `QrDialog` with a dedicated `QrType.BARCODE` code path.
+Real-time 1D barcode detection via [zbar](https://github.com/mchehab/zbar). Supports EAN-13/8, UPC-A/E, Code 128/39/93, Codabar, ITF, ISBN, DataBar, and PDF417. Detected barcodes open a contextual dialog with copy action.
 
 ### Effect Pipeline Optimizations
 
-| Change | Before | After | Impact |
-|--------|--------|-------|--------|
-| Beauty/Denoise downscale | `bilateralFilter` on full frame | 50% downscale for frames > 480p | ~4× throughput on 1080p |
-| GaussianBlur kernel | `ksize = min(int(sigma_s), 31)` | `GaussianBlur((0,0), sigmaX=sigma_s/6)` | Full Sigma S range (0–200) without 31px ceiling |
-| Pencil Sketch sigma_r | Parameter registered but unused | Controls Canny edge blending intensity | Functional detail control slider |
-| Stylization edges | `adaptiveThreshold` on original frame | On smoothed frame, block size scales with sigma_s | Coherent edges matching visible smoothing |
-| Vignette range | Float 0.0–1.0 (step 0.05) | Integer 10–100 (step 5) | Finer slider precision |
-
-### Phone Camera Portrait Fix
-
-The embedded HTML page's CSS now constrains `.video-wrap` to `max-height: 50vh` in portrait orientation, preventing the video feed from pushing control buttons below the viewport fold on narrow phone screens. In landscape mode, `max-height: none` is applied for full-height grid layout.
-
-### Packaging
-
-PKGBUILD updated with complete, audited dependency list. All runtime packages are now in `depends` (no `optdepends`). New additions:
-
-- `python-opencv` — OpenCV with Python bindings (effects, QR scanner, smile capture, software controls)
-- `python-numpy` — NumPy array processing (frame buffers, vignette mask generation)
-- `python-aiohttp` — Async HTTP/WebSocket server (phone camera streaming)
-- `python-qrcode` — QR code image generation (phone camera connection dialog)
-- `libcamera` — CSI/ISP camera support (Raspberry Pi Camera Module, Intel IPU6)
-- `zbar` — 1D barcode scanner library with Python bindings
-- `gst-plugins-bad-libs` — GStreamer `tsdemux` element (gPhoto2 MPEG-TS pipeline)
-- `gst-plugins-ugly` — GStreamer `x264enc` element (video recording)
+- Beauty/Denoise: 50% downscale above 480p (~4× throughput on 1080p)
+- GaussianBlur: `sigmaX` instead of capped kernel size (full 0–200 range)
+- Pencil Sketch: `sigma_r` now controls Canny edge blending
+- Stylization: edges computed on smoothed frame with scaling block size
+- Vignette: integer 10–100 range for finer slider precision
 
 ---
 
@@ -272,7 +308,7 @@ Effects are applied in the GStreamer buffer probe before the frame reaches both 
 
 - **QR Code Scanner**: Real-time detection using OpenCV WeChatQRCode engine (primary) with OpenCV QRCodeDetector fallback. Detected QR codes are highlighted with a red bounding box and the surrounding area is darkened. Supports URL, WiFi credentials (auto connect), vCard contacts, calendar events, phone numbers, email addresses, SMS, geolocation, TOTP authentication, and plain text. Detected codes open a detailed dialog with contextual actions (open URL, copy text, connect to WiFi, export vCard, etc.).
 
-- **Barcode Scanner** (v4.1.0): Integrated alongside the QR scanner, using [zbar](https://github.com/mchehab/zbar) `ImageScanner` on grayscale frames extracted from the GStreamer buffer probe. Falls back automatically when no QR code is found — if a barcode is present, zbar decodes it and emits the result to the same dialog system. Supported symbologies:
+- **Barcode Scanner**: Integrated alongside the QR scanner, using [zbar](https://github.com/mchehab/zbar) `ImageScanner` on grayscale frames extracted from the GStreamer buffer probe. Falls back automatically when no QR code is found — if a barcode is present, zbar decodes it and emits the result to the same dialog system. Supported symbologies:
 
   | Symbology | Format |
   |-----------|--------|
@@ -294,7 +330,7 @@ Effects are applied in the GStreamer buffer probe before the frame reaches both 
 ### Photo & Video
 
 - **Photo capture**: single-click or timer-delayed capture. For gPhoto2 cameras, the photo is captured at the camera's native resolution (not the preview resolution) and automatically downloaded.
-- **Video recording**: records directly from the GStreamer pipeline using x264 in ultrafast preset, saved as MKV container. Recording continues while the preview remains active.
+- **Video recording**: records from the GStreamer pipeline with configurable codecs (H.264/H.265/VP9/MJPEG), audio codecs (Opus/AAC/MP3/Vorbis), and containers (MKV/WebM/MP4). Hardware-accelerated encoding when available. Recording continues while the preview remains active.
 - **Photo gallery**: browse captured images with lazy-loaded thumbnails. Delete photos directly from the gallery with confirmation dialog.
 - **Video gallery**: browse and play recorded videos with the system's default player.
 - **XDG-compliant paths**: photos and videos are saved to the system's configured Pictures and Videos directories (e.g., `~/Imagens/BigCam/` on Portuguese systems, `~/Pictures/BigCam/` on English systems) using `xdg-user-dir`.
@@ -332,6 +368,10 @@ Effects are applied in the GStreamer buffer probe before the frame reaches both 
 | **Resolution** | Select from camera's available resolutions (filtered by tiers: 240p, 360p, 480p, 720p, 1080p, 1440p, 4K) |
 | **FPS limit** | Auto, 15, 24, 30, 60 fps |
 | **Capture timer** | Instant, 3s, 5s, 10s delay (synced with header button) |
+| **Recording video codec** | H.264 (default), H.265, VP9, MJPEG — with hardware acceleration |
+| **Recording audio codec** | Opus (default), AAC, MP3, Vorbis |
+| **Recording container** | MKV (default), WebM, MP4 |
+| **Recording bitrate** | 500–50,000 kbps (default: 8,000) |
 | **QR Scanner** | Enable/disable real-time QR code detection (synced with bottom bar button) |
 | **Smile Capture** | Enable/disable automatic smile-triggered photos (synced with bottom bar button) |
 | **Virtual Camera** | Start/stop v4l2loopback output (synced with bottom bar button) |
@@ -434,7 +474,7 @@ bigcam/
 │   │   ├── effects.py               # EffectPipeline — 17 OpenCV effects + MediaPipe background blur
 │   │   ├── audio_monitor.py         # Audio device detection and playback for USB cameras via GStreamer level element
 │   │   ├── photo_capture.py         # Photo capture orchestration (preview snapshot + gPhoto2 download)
-│   │   ├── video_recorder.py        # H.264/MKV video recording from GStreamer pipeline (x264enc ultrafast)
+│   │   ├── video_recorder.py        # Multi-codec video recording (H.264/H.265/VP9/MJPEG, HW accel, MKV/WebM/MP4)
 │   │   ├── virtual_camera.py        # v4l2loopback management (modprobe, device enumeration, start/stop)
 │   │   ├── phone_camera.py          # HTTPS + WebSocket server for smartphone streaming (self-signed TLS)
 │   │   └── backends/                # One module per camera type

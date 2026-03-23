@@ -193,12 +193,23 @@ class CameraManager(GObject.Object):
         if backend:
             backend.reset_all_controls(camera, controls)
 
+    def apply_anti_flicker(self, camera: CameraInfo) -> None:
+        backend = self.get_backend(camera.backend)
+        if backend and hasattr(backend, "apply_anti_flicker"):
+            backend.apply_anti_flicker(camera)
+
     # -- gstreamer proxy -----------------------------------------------------
 
-    def get_gst_source(self, camera: CameraInfo, fmt: VideoFormat | None = None) -> str:
+    def get_gst_source(
+        self, camera: CameraInfo, fmt: VideoFormat | None = None,
+        prefer_v4l2: bool = False,
+    ) -> str:
         backend = self.get_backend(camera.backend)
         if backend:
-            return backend.get_gst_source(camera, fmt)
+            try:
+                return backend.get_gst_source(camera, fmt, prefer_v4l2=prefer_v4l2)
+            except TypeError:
+                return backend.get_gst_source(camera, fmt)
         return ""
 
     # -- photo proxy ---------------------------------------------------------

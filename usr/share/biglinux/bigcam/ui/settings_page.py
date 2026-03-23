@@ -51,6 +51,8 @@ class SettingsPage(Gtk.ScrolledWindow):
         "controls-opacity-changed": (GObject.SignalFlags.RUN_LAST, None, (int,)),
         "help-tooltips-changed": (GObject.SignalFlags.RUN_LAST, None, (bool,)),
         "capture-timer-changed": (GObject.SignalFlags.RUN_LAST, None, (int,)),
+        "recording-config-changed": (GObject.SignalFlags.RUN_LAST, None, ()),
+        "prefer-v4l2-changed": (GObject.SignalFlags.RUN_LAST, None, (bool,)),
     }
 
     def __init__(self, settings: SettingsManager, stream_engine=None) -> None:
@@ -89,6 +91,7 @@ class SettingsPage(Gtk.ScrolledWindow):
         self._build_general(content)
         self._build_virtual_camera(content)
         self._build_preview(content)
+        self._build_recording(content)
         if _HAS_CV2 and stream_engine is not None:
             self._build_tools(content)
 
@@ -247,6 +250,15 @@ class SettingsPage(Gtk.ScrolledWindow):
         controls_opacity_row.add_suffix(self._controls_opacity_scale)
         preview.add(controls_opacity_row)
 
+        v4l2_row = Adw.SwitchRow(
+            title=_("Direct V4L2 access"),
+            subtitle=_("Bypass PipeWire and access the camera directly. May fix flickering on some webcams."),
+        )
+        v4l2_row.add_prefix(Gtk.Image.new_from_icon_name("camera-video-symbolic"))
+        v4l2_row.set_active(self._settings.get("prefer-v4l2"))
+        v4l2_row.connect("notify::active", self._on_prefer_v4l2)
+        preview.add(v4l2_row)
+
         content.append(preview)
 
         # -- Camera group (resolution, FPS, timer) ---------------------------
@@ -312,6 +324,89 @@ class SettingsPage(Gtk.ScrolledWindow):
         camera_group.add(self._timer_row)
 
         content.append(camera_group)
+
+    def _build_recording(self, content: Gtk.Box) -> None:
+        """Recording codec/container/bitrate settings."""
+        group = Adw.PreferencesGroup(title=_("Recording"))
+
+        # Video codec
+        vcodec_model = Gtk.StringList.new(["H.264", "H.265", "VP9", "MJPEG"])
+        self._vcodec_row = Adw.ComboRow(
+            title=_("Video Codec"),
+            model=vcodec_model,
+        )
+        _vcodec_map = {"h264": 0, "h265": 1, "vp9": 2, "mjpeg": 3}
+        _vcodec_keys = ["h264", "h265", "vp9", "mjpeg"]
+        cur = self._settings.get("recording-video-codec")
+        self._vcodec_row.set_selected(_vcodec_map.get(cur, 0))
+
+        def _on_vcodec(row, _pspec):
+            idx = row.get_selected()
+            self._settings.set("recording-video-codec", _vcodec_keys[idx])
+            self.emit("recording-config-changed")
+
+        self._vcodec_row.connect("notify::selected", _on_vcodec)
+        group.add(self._vcodec_row)
+
+        # Audio codec
+        acodec_model = Gtk.StringList.new(["Opus", "AAC", "MP3", "Vorbis"])
+        self._acodec_row = Adw.ComboRow(
+            title=_("Audio Codec"),
+            model=acodec_model,
+        )
+        _acodec_map = {"opus": 0, "aac": 1, "mp3": 2, "vorbis": 3}
+        _acodec_keys = ["opus", "aac", "mp3", "vorbis"]
+        cur_a = self._settings.get("recording-audio-codec")
+        self._acodec_row.set_selected(_acodec_map.get(cur_a, 0))
+
+        def _on_acodec(row, _pspec):
+            idx = row.get_selected()
+            self._settings.set("recording-audio-codec", _acodec_keys[idx])
+            self.emit("recording-config-changed")
+
+        self._acodec_row.connect("notify::selected", _on_acodec)
+        group.add(self._acodec_row)
+
+        # Container format
+        container_model = Gtk.StringList.new(["MKV", "WebM", "MP4"])
+        self._container_row = Adw.ComboRow(
+            title=_("Container"),
+            model=container_model,
+        )
+        _container_map = {"mkv": 0, "webm": 1, "mp4": 2}
+        _container_keys = ["mkv", "webm", "mp4"]
+        cur_c = self._settings.get("recording-container")
+        self._container_row.set_selected(_container_map.get(cur_c, 0))
+
+        def _on_container(row, _pspec):
+            idx = row.get_selected()
+            self._settings.set("recording-container", _container_keys[idx])
+            self.emit("recording-config-changed")
+
+        self._container_row.connect("notify::selected", _on_container)
+        group.add(self._container_row)
+
+        # Video bitrate
+        bitrate_adj = Gtk.Adjustment(
+            value=self._settings.get("recording-video-bitrate"),
+            lower=500,
+            upper=50000,
+            step_increment=500,
+            page_increment=2000,
+        )
+        self._bitrate_row = Adw.SpinRow(
+            title=_("Video Bitrate (kbps)"),
+            adjustment=bitrate_adj,
+        )
+
+        def _on_bitrate(row, _pspec):
+            self._settings.set("recording-video-bitrate", int(row.get_value()))
+            self.emit("recording-config-changed")
+
+        self._bitrate_row.connect("notify::value", _on_bitrate)
+        group.add(self._bitrate_row)
+
+        content.append(group)
 
     def _build_tools(self, content: Gtk.Box) -> None:
         import threading
@@ -409,6 +504,11 @@ class SettingsPage(Gtk.ScrolledWindow):
         active = row.get_active()
         self._settings.set("mirror_preview", active)
         self.emit("mirror-changed", active)
+
+    def _on_prefer_v4l2(self, row: Adw.SwitchRow, _pspec) -> None:
+        active = row.get_active()
+        self._settings.set("prefer-v4l2", active)
+        self.emit("prefer-v4l2-changed", active)
 
     def _on_show_fps(self, row: Adw.SwitchRow, _pspec) -> None:
         active = row.get_active()

@@ -52,7 +52,29 @@ window.bigcam {
         min-width: 36px;
         min-height: 36px;
     }
+
+        /* CSD window controls (minimize/maximize/close) on dark top bar */
+        .osd-bar.top-bar windowcontrols button {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            color: rgba(255, 255, 255, 0.9);
+            -gtk-icon-size: 16px;
+            min-width: 28px;
+            min-height: 28px;
+        }
     
+        .osd-bar.top-bar windowcontrols button:hover {
+            background: transparent;
+        }
+    
+        .osd-bar.top-bar windowcontrols button:active {
+            background: transparent;
+        }
+    
+        .osd-bar.top-bar windowcontrols button.close:hover {
+            background: transparent;
+        }
     /* --- Bottom Controls Overlay (gradient edge-to-edge) --- */
     .osd-bar.bottom-bar {
         background: linear-gradient(to top,

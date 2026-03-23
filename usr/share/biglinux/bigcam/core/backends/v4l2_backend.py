@@ -352,17 +352,74 @@ class V4L2Backend(CameraBackend):
         except (subprocess.CalledProcessError, FileNotFoundError):
             return False
 
+    def apply_anti_flicker(self, camera: CameraInfo) -> None:
+        """Auto-set power_line_frequency if disabled (value 0).
+
+        Detects the appropriate frequency (50/60 Hz) from the system
+        timezone. Safe to call from a background thread.
+        """
+        if not camera.device_path:
+            return
+        try:
+            result = subprocess.run(
+                ["v4l2-ctl", "-d", camera.device_path,
+                 "--get-ctrl", "power_line_frequency"],
+                capture_output=True, text=True, timeout=3,
+            )
+            if result.returncode != 0:
+                return
+            # Output: "power_line_frequency: 0" (0=Disabled, 1=50Hz, 2=60Hz)
+            current = int(result.stdout.strip().split(":")[-1].strip())
+            if current != 0:
+                return  # already configured, don't override
+        except Exception:
+            return
+
+        freq = self._detect_power_line_freq()
+        if self.set_control(camera, "power_line_frequency", freq):
+            hz = "60" if freq == 2 else "50"
+            log.info("Anti-flicker: set power_line_frequency=%s (%s Hz) on %s",
+                     freq, hz, camera.device_path)
+
+    @staticmethod
+    def _detect_power_line_freq() -> int:
+        """Detect power line frequency from system timezone.
+
+        Returns 2 (60 Hz) for the Americas, 1 (50 Hz) elsewhere.
+        """
+        try:
+            tz_link = os.readlink("/etc/localtime")
+            # e.g. /usr/share/zoneinfo/America/Sao_Paulo
+            parts = tz_link.split("/zoneinfo/")
+            if len(parts) == 2:
+                region = parts[1].split("/")[0]
+                if region == "America":
+                    return 2  # 60 Hz
+                return 1  # 50 Hz
+        except OSError:
+            pass
+        # Fallback: check TZ environment variable
+        tz_env = os.environ.get("TZ", "")
+        if tz_env.startswith("America/"):
+            return 2
+        # Default: 50 Hz (most common worldwide)
+        return 1
+
     # -- gstreamer -----------------------------------------------------------
 
-    def get_gst_source(self, camera: CameraInfo, fmt: VideoFormat | None = None) -> str:
+    def get_gst_source(
+        self, camera: CameraInfo, fmt: VideoFormat | None = None,
+        prefer_v4l2: bool = False,
+    ) -> str:
         device = camera.device_path
 
-        # Try PipeWire first — allows sharing the camera with other apps
-        pw_node_id = self._find_pw_node_id(device)
-        if pw_node_id is not None:
-            return self._pw_gst_source(pw_node_id, camera, fmt)
+        if not prefer_v4l2:
+            # Try PipeWire first — allows sharing the camera with other apps
+            pw_node_id = self._find_pw_node_id(device)
+            if pw_node_id is not None:
+                return self._pw_gst_source(pw_node_id, camera, fmt)
 
-        # Fallback: direct V4L2 (exclusive access)
+        # Direct V4L2 (exclusive access, lower latency)
         return self._v4l2_gst_source(device, camera, fmt)
 
     def _pw_gst_source(
@@ -370,7 +427,7 @@ class V4L2Backend(CameraBackend):
     ) -> str:
         """Build pipewiresrc element — PipeWire allows multi-app camera sharing."""
         # Use 'path' property (object ID), not 'target-object' (serial/name).
-        src = f"pipewiresrc path={node_id}"
+        src = f"pipewiresrc path={node_id} do-timestamp=true"
         if fmt is None:
             fmt = self._pick_best_format(camera)
         if fmt:
@@ -390,8 +447,12 @@ class V4L2Backend(CameraBackend):
     def _v4l2_gst_source(
         self, device: str, camera: CameraInfo, fmt: VideoFormat | None
     ) -> str:
-        """Build v4l2src element — exclusive device access."""
-        src = f"v4l2src device={device}"
+        """Build v4l2src element — exclusive device access (like guvcview)."""
+        plf = self._detect_power_line_freq()
+        src = (
+            f"v4l2src device={device} io-mode=mmap do-timestamp=true"
+            f" extra-controls=\"s,power_line_frequency={plf}\""
+        )
         if fmt is None:
             fmt = self._pick_best_format(camera)
         if fmt:

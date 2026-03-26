@@ -7,7 +7,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Gtk, GLib
+from gi.repository import Gtk, GLib, Pango
 
 from utils.i18n import _
 
@@ -49,7 +49,7 @@ class InlineNotification(Gtk.Revealer):
             hexpand=True,
             xalign=0,
             wrap=True,
-            wrap_mode=2,  # WORD_CHAR
+            wrap_mode=Pango.WrapMode.WORD_CHAR,
         )
         self._label.add_css_class("notification-label")
 

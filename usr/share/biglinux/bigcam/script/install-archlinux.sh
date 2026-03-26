@@ -1,4 +1,5 @@
-set -e
+#!/bin/bash
+set -euo pipefail
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -18,12 +19,12 @@ package_installed() {
     pacman -Qi "$1" &> /dev/null
 }
 detect_package_manager() {
-    if command_exists pacman; then
-        echo "pacman"
+    if command_exists paru; then
+        echo "paru"
     elif command_exists yay; then
         echo "yay"
-    elif command_exists paru; then
-        echo "paru"
+    elif command_exists pacman; then
+        echo "pacman"
     else
         echo "unknown"
     fi
@@ -115,7 +116,7 @@ else
 fi
 echo ""
 echo -e "${BLUE}Configuração pós-instalação...${NC}"
-if groups | grep -q "video"; then
+if groups | grep -qw "video"; then
     echo -e "  ${GREEN}✓${NC} Usuário está no grupo 'video'"
 else
     echo -e "  ${YELLOW}!${NC} Adicionando usuário ao grupo 'video'..."
@@ -127,9 +128,10 @@ if [ -f "$UDEV_RULE" ]; then
     echo -e "  ${GREEN}✓${NC} Regra udev para libgphoto2 já existe"
 else
     echo -e "  ${YELLOW}!${NC} Criando regra udev para acesso à câmera..."
-    sudo /usr/lib/libgphoto2/print-camera-list udev-rules version 201 > /tmp/90-libgphoto2.rules 2>/dev/null || true
-    if [ -s /tmp/90-libgphoto2.rules ]; then
-        sudo mv /tmp/90-libgphoto2.rules "$UDEV_RULE"
+    TMPFILE=$(mktemp /tmp/90-libgphoto2.rules.XXXXXX)
+    sudo /usr/lib/libgphoto2/print-camera-list udev-rules version 201 > "$TMPFILE" 2>/dev/null || true
+    if [ -s "$TMPFILE" ]; then
+        sudo mv "$TMPFILE" "$UDEV_RULE"
         sudo udevadm control --reload-rules
         echo -e "  ${GREEN}✓${NC} Regra udev criada"
     else
@@ -138,8 +140,9 @@ else
 fi
 V4L2_CONF="/etc/modprobe.d/v4l2loopback.conf"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Go up one level from /script/ to root, then into etc/modprobe.d/
-LOCAL_CONF="$SCRIPT_DIR/../etc/modprobe.d/v4l2loopback.conf"
+# Go up from usr/share/biglinux/bigcam/script/ to the project root
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
+LOCAL_CONF="$REPO_ROOT/etc/modprobe.d/v4l2loopback.conf"
 if [ -f "$LOCAL_CONF" ]; then
     if [ -f "$V4L2_CONF" ]; then
         echo -e "  ${GREEN}✓${NC} Configuração v4l2loopback já existe"
@@ -157,7 +160,7 @@ echo -e "${GREEN}Instalação finalizada!${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo ""
 echo -e "Para executar o aplicativo:"
-echo -e "  ${GREEN}python3 canon_webcam_controller.py${NC}"
+echo -e "  ${GREEN}bigcam${NC}"
 echo ""
 echo -e "Notas importantes:"
 echo -e "  • Conecte sua câmera via USB antes de iniciar"

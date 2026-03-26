@@ -278,7 +278,7 @@ class EffectsPage(Gtk.ScrolledWindow):
         self._resetting = True
         for eid, widgets in self._effect_widgets.items():
             info = next(
-                (i for i, _ in self._pipeline._effects if i.effect_id == eid),
+                (i for i in self._pipeline.get_effects() if i.effect_id == eid),
                 None,
             )
             if info is None:

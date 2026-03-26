@@ -11,10 +11,19 @@ import subprocess
 import logging
 
 # Configure logging early
+_log_dir = os.environ.get(
+    "XDG_STATE_HOME", os.path.expanduser("~/.local/state")
+)
+_log_dir = os.path.join(_log_dir, "bigcam")
+os.makedirs(_log_dir, exist_ok=True)
+_log_path = os.path.join(_log_dir, "debug.log")
+# Create log file with restrictive permissions
+_log_fd = os.open(_log_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+os.close(_log_fd)
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(name)s:%(levelname)s: %(message)s",
-    filename="/tmp/bigcam_debug.log",
+    filename=_log_path,
     filemode="w",
 )
 # Also log INFO+ to stderr so we can see critical messages in terminal
@@ -32,7 +41,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("Gst", "1.0")
 
-from gi.repository import Adw, Gio, GLib, Gst
+from gi.repository import Adw, Gio, Gtk, GLib, Gst
 
 from constants import APP_ID, APP_NAME, APP_ICON
 from ui.window import BigDigicamWindow
@@ -98,9 +107,8 @@ class BigDigicamApp(Adw.Application):
         # Also add the system icon path that contains bigcam.svg
         sys_icon_dir = os.path.join(
             os.path.dirname(base_dir),  # up from bigcam/ to biglinux/
-            "..",
-            "..",
-            "icons",  # usr/share/icons
+            "..",                        # up to usr/share/
+            "icons",                     # usr/share/icons
         )
         sys_icon_dir = os.path.realpath(sys_icon_dir)
         if (
@@ -132,17 +140,18 @@ class BigDigicamApp(Adw.Application):
 
 
 def _kill_child_processes() -> None:
-    """Last-resort cleanup: kill any uxplay/scrcpy/gst-launch spawned by BigCam."""
-    for name in ("uxplay -n BigCam", "scrcpy", "gst-launch-1.0 -q fdsrc"):
-        try:
-            subprocess.run(
-                ["pkill", "-9", "-f", name],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=3,
-            )
-        except Exception:
-            pass
+    """Last-resort cleanup: kill child processes spawned by BigCam."""
+    own_pid = os.getpid()
+    try:
+        # Only kill direct children of this process
+        result = subprocess.run(
+            ["pkill", "-9", "-P", str(own_pid)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+        )
+    except Exception:
+        pass
 
 
 def main() -> int:

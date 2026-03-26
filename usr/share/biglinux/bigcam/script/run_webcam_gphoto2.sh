@@ -2,7 +2,7 @@
 set -uo pipefail
 exec 2>&1
 
-USB_PORT="$1"
+USB_PORT="${1:-}"
 UDP_PORT="${2:-5000}"
 CAM_NAME="${3:-DSLR Camera}"
 CAM_NAME="${CAM_NAME//,/}"
@@ -27,7 +27,6 @@ sleep 1
 
 # ── Step 2: Kill GVFS interference ──
 systemctl --user stop gvfs-gphoto2-volume-monitor.service 2>/dev/null
-systemctl --user mask gvfs-gphoto2-volume-monitor.service 2>/dev/null
 pkill -9 -f "gvfs-gphoto2-volume-monitor" 2>/dev/null
 pkill -9 -f "gvfsd-gphoto2" 2>/dev/null
 gio mount -u gphoto2://* 2>/dev/null
@@ -60,7 +59,8 @@ elif [ "$V4L2_DEV" != "auto" ] && [ -e "$V4L2_DEV" ]; then
   # Specific device pre-allocated by BigCam — use it directly
   DEVICE_VIDEO="$V4L2_DEV"
 else
-  for dev in $(ls -v /dev/video* 2>/dev/null); do
+  for dev in /dev/video*; do
+    [ -e "$dev" ] || continue
     DRIVER=$(v4l2-ctl -d "$dev" --info 2>/dev/null | grep "Driver name" | sed 's/.*: //')
     if echo "$DRIVER" | grep -qi "v4l2.*loopback\|loopback"; then
       if ! fuser "$dev" >/dev/null 2>&1; then
@@ -87,7 +87,7 @@ sleep 0.5
 if ! timeout 10 gphoto2 --auto-detect 2>&1 | grep -q "$USB_PORT"; then
   echo "WARN: Camera not at original port $USB_PORT, re-detecting..."
   # Try to find camera by name at a different port
-  NEW_PORT=$(timeout 10 gphoto2 --auto-detect 2>/dev/null | grep -i "$CAM_NAME" | grep -oP 'usb:\S+' | head -1)
+  NEW_PORT=$(timeout 10 gphoto2 --auto-detect 2>/dev/null | grep -Fi "$CAM_NAME" | grep -o 'usb:[^ ]*' | head -1)
   if [ -n "$NEW_PORT" ]; then
     echo "INFO: Camera '$CAM_NAME' found at new port: $NEW_PORT"
     USB_PORT="$NEW_PORT"
@@ -100,7 +100,7 @@ fi
 
 # ── Step 6: Launch gphoto2 + ffmpeg with retry ──
 MAX_ATTEMPTS=3
-for attempt in $(seq 1 $MAX_ATTEMPTS); do
+for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   > "$ERR_LOG"
   > "$LOG"
 

@@ -45,6 +45,7 @@ class VideoRecorder:
         self._w = 0
         self._h = 0
         self._start_time = 0
+        self._finalize_thread: threading.Thread | None = None
         # Configurable codec/container/bitrate
         self._video_codec = "h264"
         self._audio_codec = "opus"
@@ -438,10 +439,19 @@ class VideoRecorder:
                 pipeline.set_state(Gst.State.NULL)
                 self._remux_container(path)
 
-            threading.Thread(target=_finalize, daemon=True).start()
+            self._finalize_thread = threading.Thread(
+                target=_finalize, daemon=True, name="rec-finalize",
+            )
+            self._finalize_thread.start()
 
         log.info("Recording stopped: %s", path)
         return path
+
+    def wait_finalize(self, timeout: float = 20.0) -> None:
+        """Block until the finalize thread completes (call before app exit)."""
+        t = self._finalize_thread
+        if t is not None and t.is_alive():
+            t.join(timeout=timeout)
 
     def _remux_container(self, path: str) -> None:
         """Remux container to fix metadata (duration, seek cues)."""

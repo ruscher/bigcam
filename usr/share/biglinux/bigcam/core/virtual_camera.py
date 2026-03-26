@@ -84,6 +84,7 @@ class VirtualCamera:
                 ["v4l2-ctl", "--list-devices"],
                 capture_output=True,
                 text=True,
+                timeout=5,
             )
             if result.returncode != 0:
                 return devices
@@ -108,6 +109,7 @@ class VirtualCamera:
                     ["v4l2-ctl", "-d", dev, "--info"],
                     capture_output=True,
                     text=True,
+                    timeout=5,
                 )
                 if result.returncode == 0 and "v4l2 loopback" in result.stdout.lower():
                     return dev
@@ -278,6 +280,7 @@ def _has_v4l2loopback() -> bool:
         result = subprocess.run(
             ["modinfo", "v4l2loopback"],
             capture_output=True,
+            timeout=5,
         )
         return result.returncode == 0
     except FileNotFoundError:

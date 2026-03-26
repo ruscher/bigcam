@@ -40,6 +40,37 @@ log = logging.getLogger(__name__)
 # Backends that stream via UDP (MPEG-TS) need appsink
 _APPSINK_BACKENDS = {BackendType.GPHOTO2, BackendType.IP}
 
+# ── Thread-safe stderr suppression (refcounted) ─────────────────────
+# Native libraries (libjpeg-turbo, V4L2) write warnings directly to fd 2.
+# We redirect fd 2 to /dev/null while capture threads are active, using a
+# refcount so multiple threads can coexist safely.
+_stderr_lock = threading.Lock()
+_stderr_refcount = 0
+_stderr_orig_fd: int | None = None
+
+
+def _stderr_suppress() -> None:
+    """Redirect fd 2 to /dev/null (refcounted, thread-safe)."""
+    global _stderr_refcount, _stderr_orig_fd
+    with _stderr_lock:
+        if _stderr_refcount == 0:
+            _stderr_orig_fd = os.dup(2)
+            devnull = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(devnull, 2)
+            os.close(devnull)
+        _stderr_refcount += 1
+
+
+def _stderr_restore() -> None:
+    """Restore fd 2 when the last suppressor exits."""
+    global _stderr_refcount, _stderr_orig_fd
+    with _stderr_lock:
+        _stderr_refcount -= 1
+        if _stderr_refcount == 0 and _stderr_orig_fd is not None:
+            os.dup2(_stderr_orig_fd, 2)
+            os.close(_stderr_orig_fd)
+            _stderr_orig_fd = None
+
 
 def _find_device_users(device_path: str) -> list[str]:
     """Return list of process names currently using a V4L2 device.
@@ -155,13 +186,10 @@ class _BgVcamFeeder:
         """Background capture → push loop."""
         cap = self._cap
         appsrc = self._appsrc
-        devnull_fd = os.open(os.devnull, os.O_WRONLY)
-        orig_stderr_fd = os.dup(2)
+        _stderr_suppress()
         try:
             while cap is not None and cap.isOpened() and not self._stop.is_set():
-                os.dup2(devnull_fd, 2)
                 ret, frame = cap.read()
-                os.dup2(orig_stderr_fd, 2)
                 if not ret:
                     if self._stop.is_set():
                         break
@@ -177,9 +205,7 @@ class _BgVcamFeeder:
                         log.warning("BgVcamFeeder: push-buffer returned %s — stopping", ret)
                         break
         finally:
-            os.dup2(orig_stderr_fd, 2)
-            os.close(devnull_fd)
-            os.close(orig_stderr_fd)
+            _stderr_restore()
 
     def stop(self) -> None:
         """Stop the feeder and release resources."""
@@ -930,23 +956,17 @@ class StreamEngine(GObject.Object):
         """Background thread: read frames from V4L2 as fast as they arrive."""
         cap = self._cv_cap
         stop = self._cv_stop_event
-        # Suppress libjpeg-turbo "Corrupt JPEG data" stderr warnings
-        devnull_fd = os.open(os.devnull, os.O_WRONLY)
-        orig_stderr_fd = os.dup(2)
+        _stderr_suppress()
         try:
             while cap is not None and cap.isOpened() and not stop.is_set():
-                os.dup2(devnull_fd, 2)
                 ret, frame = cap.read()
-                os.dup2(orig_stderr_fd, 2)
                 if ret:
                     self._cv_latest_frame = frame
                     self._cv_frame_seq += 1
                 elif stop.is_set():
                     break
         finally:
-            os.dup2(orig_stderr_fd, 2)
-            os.close(devnull_fd)
-            os.close(orig_stderr_fd)
+            _stderr_restore()
 
     def _cv_render_frame(self) -> bool:
         """Main-thread timer: render latest captured frame as GdkTexture."""
@@ -1649,6 +1669,21 @@ class StreamEngine(GObject.Object):
             if feeder:
                 feeder.stop()
         self._bg_vcam_feeders.clear()
+
+    def has_active_bg_vcams(self) -> bool:
+        """Return True if any background virtual cameras are running."""
+        return bool(self._bg_vcam_feeders) or bool(self._bg_vcam_pipelines)
+
+    @property
+    def vcam_active(self) -> bool:
+        """Return True if the foreground virtual camera output is active."""
+        return bool(self._vcam_device)
+
+    def stop_vcam(self) -> None:
+        """Public wrapper: stop foreground vcam and release the device."""
+        self._stop_vcam()
+        self._release_vcam_device()
+        self._vcam_device = ""
 
     def ensure_bg_vcam(self, camera: CameraInfo) -> None:
         """Ensure a background vcam feeder exists for the given camera.

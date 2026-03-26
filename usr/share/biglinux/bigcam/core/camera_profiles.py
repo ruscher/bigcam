@@ -38,8 +38,8 @@ def save_profile(
     """Persist current control values. Returns the file path."""
     path = _profile_path(camera, profile_name)
     data = {c.id: c.value for c in controls}
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2, default=str)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, default=str, ensure_ascii=False)
     return path
 
 
@@ -48,7 +48,7 @@ def load_profile(camera: CameraInfo, profile_name: str) -> dict[str, object]:
     path = _profile_path(camera, profile_name)
     if not os.path.isfile(path):
         return {}
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 

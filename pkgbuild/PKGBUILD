@@ -4,47 +4,71 @@
 pkgname=bigcam
 pkgdesc="Universal webcam control center for BigLinux"
 depends=(
+    # Python runtime
     'python'
     'python-gobject'
     'python-opencv'
     'python-numpy'
     'python-aiohttp'
     'python-qrcode'
+
+    # GTK4 / UI
     'gtk4'
     'libadwaita'
+
+    # GStreamer core + plugins
     'gstreamer'
     'gst-plugins-base'
     'gst-plugins-good'
-    'gst-plugins-bad-libs'
+    'gst-plugins-bad'
     'gst-plugins-ugly'
     'gst-plugin-gtk4'
-    'ffmpeg'
+    'gst-plugin-libcamera'
+    'gst-libav'
+
+    # Camera backends & virtual camera
     'v4l-utils'
-    'gphoto2'
     'v4l2loopback-dkms'
-    'x264'
-    'pipewire'
-    'polkit'
+    'linux-headers'
+    'gphoto2'
     'libcamera'
-    'zbar'
-    'qrencode'
+    'libcamera-tools'
+
+    # Media / audio
+    'ffmpeg'
+    'pipewire'
+    'pipewire-libcamera'
+    'libpulse'
+
+    # Phone / Android / AirPlay
     'scrcpy'
     'android-tools'
     'uxplay'
+
+    # QR / barcode
+    'zbar'
+    'qrencode'
+
+    # Network / security / system
+    'avahi'
+    'openssl'
+    'sudo'
+    'polkit'
+    'xdg-utils'
+    'xdg-user-dirs'
+    'psmisc'
+    'usbutils'
 )
 pkgver=$(date +%y.%m.%d)
 pkgrel=$(date +%H%M)
 arch=('any')
 license=('GPL3')
 url="https://github.com/biglinux/$pkgname"
+backup=('etc/sudoers.d/bigcam' 'etc/modprobe.d/v4l2loopback.conf')
 provides=("$pkgname")
 source=("git+${url}.git")
-md5sums=('SKIP')
-if [ -e "${pkgname}.install" ]; then
-    install=${pkgname}.install
-elif [ -e "pkgbuild.install" ]; then
-    install=pkgbuild.install
-fi
+sha256sums=('SKIP')
+install=pkgbuild.install
 
 package() {
     if [ -d "${srcdir}/${pkgname}/${pkgname}" ]; then
@@ -59,5 +83,10 @@ package() {
 
     if [ -d "${InternalDir}/etc" ]; then
         cp -r "${InternalDir}/etc" "${pkgdir}/"
+    fi
+
+    # sudoers files must be 0440 or sudo refuses to parse them
+    if [ -f "${pkgdir}/etc/sudoers.d/bigcam" ]; then
+        chmod 0440 "${pkgdir}/etc/sudoers.d/bigcam"
     fi
 }

@@ -784,25 +784,42 @@ def _ensure_cert() -> None:
     if os.path.isfile(_CERT_FILE) and os.path.isfile(_KEY_FILE):
         return
     os.makedirs(_CERT_DIR, exist_ok=True)
-    subprocess.run(
-        [
-            "openssl",
-            "req",
-            "-x509",
-            "-newkey",
-            "rsa:2048",
-            "-keyout",
-            _KEY_FILE,
-            "-out",
-            _CERT_FILE,
-            "-days",
-            "365",
-            "-nodes",
-            "-subj",
-            "/CN=BigCam Phone Camera",
-        ],
-        check=True,
-        capture_output=True,
-    )
-    os.chmod(_KEY_FILE, 0o600)
-    log.info("Generated self-signed certificate at %s", _CERT_FILE)
+    # Write to temp files first to avoid partial cert on crash/race
+    import tempfile
+    tmp_key = tmp_cert = ""
+    try:
+        fd_key, tmp_key = tempfile.mkstemp(dir=_CERT_DIR, suffix=".key.tmp")
+        os.close(fd_key)
+        fd_cert, tmp_cert = tempfile.mkstemp(dir=_CERT_DIR, suffix=".cert.tmp")
+        os.close(fd_cert)
+        subprocess.run(
+            [
+                "openssl",
+                "req",
+                "-x509",
+                "-newkey",
+                "rsa:2048",
+                "-keyout",
+                tmp_key,
+                "-out",
+                tmp_cert,
+                "-days",
+                "365",
+                "-nodes",
+                "-subj",
+                "/CN=BigCam Phone Camera",
+            ],
+            check=True,
+            capture_output=True,
+            timeout=15,
+        )
+        os.chmod(tmp_key, 0o600)
+        os.rename(tmp_key, _KEY_FILE)
+        os.rename(tmp_cert, _CERT_FILE)
+        log.info("Generated self-signed certificate at %s", _CERT_FILE)
+    except Exception:
+        # Clean up temp files on failure
+        for f in (tmp_key, tmp_cert):
+            if f and os.path.exists(f):
+                os.unlink(f)
+        raise

@@ -544,4 +544,3 @@ class VideoGallery(Gtk.Box):
             except OSError:
                 pass
         self.refresh()
-        self.refresh()

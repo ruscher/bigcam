@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -13,6 +15,8 @@ from constants import BackendType
 from core.camera_backend import CameraInfo
 from core.camera_manager import CameraManager
 from utils.i18n import _
+
+log = logging.getLogger(__name__)
 
 _BACKEND_ICONS = {
     BackendType.V4L2: "camera-web-symbolic",
@@ -106,8 +110,6 @@ class CameraSelector(Gtk.Box):
         status.set_visible(item.active)
 
     def _on_cameras_changed(self, _manager: CameraManager) -> None:
-        import logging
-        log = logging.getLogger(__name__)
         old_cam = self.selected_camera
         self._cameras = self._manager.cameras
         log.info("_on_cameras_changed: %d cameras, old=%s", len(self._cameras), old_cam.name if old_cam else None)
@@ -164,8 +166,6 @@ class CameraSelector(Gtk.Box):
             GLib.idle_add(self._process_selection)
 
     def _process_selection(self) -> bool:
-        import logging
-        log = logging.getLogger(__name__)
         self._selection_idle_pending = False
         idx = self._dropdown.get_selected()
         if 0 <= idx < len(self._cameras):

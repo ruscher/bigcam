@@ -1,5 +1,6 @@
 """XDG Base Directory paths for BigCam."""
 
+import functools
 import os
 import subprocess
 
@@ -11,6 +12,7 @@ def _ensure(path: str) -> str:
     return path
 
 
+@functools.lru_cache(maxsize=None)
 def _user_dir(kind: str, fallback: str) -> str:
     """Get XDG user directory via xdg-user-dir command."""
     try:

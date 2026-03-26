@@ -1,6 +1,6 @@
 [Icon Theme]
 Name=hicolor
-Directories=scalable/apps,scalable/actions
+Directories=scalable/apps,scalable/actions,scalable/status
 
 [scalable/apps]
 Size=64
@@ -9,6 +9,12 @@ MinSize=16
 MaxSize=512
 
 [scalable/actions]
+Size=16
+Type=Scalable
+MinSize=16
+MaxSize=512
+
+[scalable/status]
 Size=16
 Type=Scalable
 MinSize=16

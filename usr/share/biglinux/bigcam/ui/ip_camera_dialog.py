@@ -74,6 +74,10 @@ class IPCameraDialog(Adw.Dialog):
         url = self._url_row.get_text().strip()
         if not url:
             return
+        # Validate URL scheme to prevent SSRF / local file access
+        _ALLOWED_SCHEMES = ("rtsp://", "rtsps://", "http://", "https://")
+        if not url.lower().startswith(_ALLOWED_SCHEMES):
+            return
         if not name:
             name = url
         self.emit("camera-added", name, url)

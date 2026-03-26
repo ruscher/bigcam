@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import urllib.request
 from dataclasses import dataclass, field
 from enum import Enum
@@ -66,10 +67,14 @@ def _clamp(v: float, lo: float, hi: float) -> float:
 # ── Individual effect implementations ──────────────────────────────────────
 
 # Per-parameter caches — avoid per-frame allocations
+_cache_lock = threading.Lock()
 _gamma_lut_cache: dict[float, np.ndarray] = {}
 _clahe_cache: dict[tuple, Any] = {}
 _vignette_cache: dict[tuple, np.ndarray] = {}
-_wb_processor = cv2.xphoto.createSimpleWB() if _HAS_CV2 else None
+try:
+    _wb_processor = cv2.xphoto.createSimpleWB() if _HAS_CV2 else None
+except AttributeError:
+    _wb_processor = None
 _SEPIA_KERNEL = (
     np.array(
         [[0.272, 0.534, 0.131], [0.349, 0.686, 0.168], [0.393, 0.769, 0.189]],
@@ -86,25 +91,28 @@ def _apply_gamma(frame: np.ndarray, params: dict[str, float]) -> np.ndarray:
         return frame
     inv = 1.0 / gamma
     key = round(inv, 4)
-    if key not in _gamma_lut_cache:
-        if len(_gamma_lut_cache) >= 8:
-            _gamma_lut_cache.pop(next(iter(_gamma_lut_cache)))
-        _gamma_lut_cache[key] = np.array(
-            [(i / 255.0) ** inv * 255 for i in range(256)],
-            dtype=np.uint8,
-        )
-    return cv2.LUT(frame, _gamma_lut_cache[key])
+    with _cache_lock:
+        if key not in _gamma_lut_cache:
+            if len(_gamma_lut_cache) >= 8:
+                _gamma_lut_cache.pop(next(iter(_gamma_lut_cache)))
+            _gamma_lut_cache[key] = np.array(
+                [(i / 255.0) ** inv * 255 for i in range(256)],
+                dtype=np.uint8,
+            )
+        lut = _gamma_lut_cache[key]
+    return cv2.LUT(frame, lut)
 
 
 def _apply_clahe(frame: np.ndarray, params: dict[str, float]) -> np.ndarray:
     clip = _clamp(params.get("clip_limit", 2.0), 1.0, 10.0)
     grid = int(_clamp(params.get("grid_size", 8), 2, 16))
     key = (round(clip, 2), grid)
-    if key not in _clahe_cache:
-        if len(_clahe_cache) >= 8:
-            _clahe_cache.pop(next(iter(_clahe_cache)))
-        _clahe_cache[key] = cv2.createCLAHE(clipLimit=clip, tileGridSize=(grid, grid))
-    clahe = _clahe_cache[key]
+    with _cache_lock:
+        if key not in _clahe_cache:
+            if len(_clahe_cache) >= 8:
+                _clahe_cache.pop(next(iter(_clahe_cache)))
+            _clahe_cache[key] = cv2.createCLAHE(clipLimit=clip, tileGridSize=(grid, grid))
+        clahe = _clahe_cache[key]
     lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
     lab[:, :, 0] = clahe.apply(lab[:, :, 0])
     return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
@@ -142,6 +150,8 @@ def _apply_denoise(frame: np.ndarray, params: dict[str, float]) -> np.ndarray:
 
 
 def _apply_white_balance(frame: np.ndarray, params: dict[str, float]) -> np.ndarray:
+    if _wb_processor is None:
+        return frame
     return _wb_processor.balanceWhite(frame)
 
 
@@ -195,18 +205,19 @@ def _apply_vignette(frame: np.ndarray, params: dict[str, float]) -> np.ndarray:
     strength = (raw / 100.0) * 3.0
     h, w = frame.shape[:2]
     key = (w, h, round(strength, 2))
-    if key not in _vignette_cache:
-        # Cap cache size to prevent unbounded memory growth (~8MB per entry at 1080p)
-        if len(_vignette_cache) >= 4:
-            _vignette_cache.pop(next(iter(_vignette_cache)))
-        x = np.arange(w, dtype=np.float32) - w / 2
-        y = np.arange(h, dtype=np.float32) - h / 2
-        xx, yy = np.meshgrid(x, y)
-        radius = np.sqrt(xx**2 + yy**2)
-        max_r = np.sqrt((w / 2) ** 2 + (h / 2) ** 2)
-        mask = 1.0 - strength * (radius / max_r) ** 2
-        _vignette_cache[key] = np.clip(mask, 0, 1)
-    mask = _vignette_cache[key]
+    with _cache_lock:
+        if key not in _vignette_cache:
+            # Cap cache size to prevent unbounded memory growth (~8MB per entry at 1080p)
+            if len(_vignette_cache) >= 4:
+                _vignette_cache.pop(next(iter(_vignette_cache)))
+            x = np.arange(w, dtype=np.float32) - w / 2
+            y = np.arange(h, dtype=np.float32) - h / 2
+            xx, yy = np.meshgrid(x, y)
+            radius = np.sqrt(xx**2 + yy**2)
+            max_r = np.sqrt((w / 2) ** 2 + (h / 2) ** 2)
+            mask = 1.0 - strength * (radius / max_r) ** 2
+            _vignette_cache[key] = np.clip(mask, 0, 1)
+        mask = _vignette_cache[key]
     mask3 = cv2.merge([mask, mask, mask])
     return cv2.multiply(frame, mask3, dtype=cv2.CV_8U)
 
@@ -214,9 +225,10 @@ def _apply_vignette(frame: np.ndarray, params: dict[str, float]) -> np.ndarray:
 
 def release_segmenter() -> None:
     """Release effect caches to free memory."""
-    _vignette_cache.clear()
-    _gamma_lut_cache.clear()
-    _clahe_cache.clear()
+    with _cache_lock:
+        _vignette_cache.clear()
+        _gamma_lut_cache.clear()
+        _clahe_cache.clear()
 
 
 # ── Effect registry ────────────────────────────────────────────────────────
@@ -425,7 +437,6 @@ class EffectPipeline:
         self._active_count = 0
         # Free cached data to reduce memory
         release_segmenter()
-        _clahe_cache.clear()
 
     def has_active_effects(self) -> bool:
         return self._active_count > 0

@@ -22,8 +22,12 @@ def _kmod_loaded(name: str) -> bool:
             ["lsmod"],
             capture_output=True,
             text=True,
+            timeout=5,
         )
-        return name in result.stdout
+        for line in result.stdout.splitlines():
+            if line.split()[0] == name:
+                return True
+        return False
     except Exception:
         return False
 

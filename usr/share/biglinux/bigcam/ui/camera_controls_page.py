@@ -136,9 +136,11 @@ class CameraControlsPage(Gtk.ScrolledWindow):
             self._clear_content()
             self._populate(controls)
 
-        threading.Thread(
-            target=lambda: GLib.idle_add(on_controls, fetch_controls()), daemon=True
-        ).start()
+        def _bg_fetch():
+            ctrls = fetch_controls()
+            GLib.idle_add(on_controls, ctrls)
+
+        threading.Thread(target=_bg_fetch, daemon=True).start()
 
     def _clear_content(self) -> None:
         child = self._content.get_first_child()

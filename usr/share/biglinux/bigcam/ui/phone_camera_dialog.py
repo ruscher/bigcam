@@ -16,7 +16,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk, GObject
+from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk, GObject, Pango
 
 from core.phone_camera import PhoneCameraServer
 from core.scrcpy_camera import ScrcpyCamera
@@ -132,7 +132,7 @@ class PhoneCameraDialog(Adw.Dialog):
             self._build_wifi_adv_page(),
             _TAB_WIFI_ADV,
             _("Wi-Fi"),
-            "network-wireless-symbolic",
+            "symbolic-phone-android",
         )
 
         # Tab 3: USB
@@ -140,7 +140,7 @@ class PhoneCameraDialog(Adw.Dialog):
             self._build_usb_page(),
             _TAB_USB,
             _("USB"),
-            "phone-symbolic",
+            "symbolic-phone-android",
         )
 
         # Tab 4: AirPlay
@@ -148,7 +148,7 @@ class PhoneCameraDialog(Adw.Dialog):
             self._build_airplay_page(),
             _TAB_AIRPLAY,
             _("AirPlay"),
-            "phone-apple-iphone-symbolic",
+            "symbolic-phone-apple",
         )
 
         self._view_switcher.set_stack(self._stack)
@@ -195,7 +195,7 @@ class PhoneCameraDialog(Adw.Dialog):
         self._status_label = Gtk.Label(label=_("Idle"))
         self._status_label.set_halign(Gtk.Align.START)
         self._status_label.add_css_class("caption")
-        self._status_label.set_ellipsize(3)  # PANGO_ELLIPSIZE_END
+        self._status_label.set_ellipsize(Pango.EllipsizeMode.END)
         status_box.append(self._status_label)
         footer.append(status_box)
 
@@ -247,7 +247,7 @@ class PhoneCameraDialog(Adw.Dialog):
 
         self._usb_device_row = Adw.ComboRow(title=_("Device"))
         self._usb_device_row.set_model(Gtk.StringList.new([_("Searching…")]))
-        dev_icon = Gtk.Image.new_from_icon_name("phone-symbolic")
+        dev_icon = Gtk.Image.new_from_icon_name("symbolic-phone-android")
         dev_icon.set_valign(Gtk.Align.CENTER)
         self._usb_device_row.add_prefix(dev_icon)
         self._usb_only_devices: list = []
@@ -280,6 +280,9 @@ class PhoneCameraDialog(Adw.Dialog):
             Gtk.StringList.new(["720p", "1080p", "1440p", "4K", _("Maximum")])
         )
         self._usb_resolution_row.set_selected(1)
+        usb_qual_icon = Gtk.Image.new_from_icon_name("video-display-symbolic")
+        usb_qual_icon.set_valign(Gtk.Align.CENTER)
+        self._usb_resolution_row.add_prefix(usb_qual_icon)
         cam_group.add(self._usb_resolution_row)
         content.append(cam_group)
 
@@ -367,7 +370,7 @@ class PhoneCameraDialog(Adw.Dialog):
 
         self._device_row = Adw.ComboRow(title=_("Device"))
         self._device_row.set_model(Gtk.StringList.new([_("Searching…")]))
-        dev_icon = Gtk.Image.new_from_icon_name("phone-symbolic")
+        dev_icon = Gtk.Image.new_from_icon_name("symbolic-phone-android")
         dev_icon.set_valign(Gtk.Align.CENTER)
         self._device_row.add_prefix(dev_icon)
         self._devices: list = []
@@ -428,18 +431,18 @@ class PhoneCameraDialog(Adw.Dialog):
         pair_icon.set_valign(Gtk.Align.CENTER)
         self._pair_expander.add_prefix(pair_icon)
 
-        # Manual IP:Port + code (primary method, always works)
-        self._pair_ip_row = Adw.EntryRow(
-            title=_("IP:Port (shown on phone screen)"),
-        )
-        self._pair_ip_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
-        self._pair_expander.add_row(self._pair_ip_row)
-
+        # 6-digit pairing code first, then IP:Port
         self._pair_code_row = Adw.EntryRow(
             title=_("6-digit code (shown on phone screen)"),
         )
         self._pair_code_row.set_input_purpose(Gtk.InputPurpose.NUMBER)
         self._pair_expander.add_row(self._pair_code_row)
+
+        self._pair_ip_row = Adw.EntryRow(
+            title=_("IP:Port (shown on phone screen)"),
+        )
+        self._pair_ip_row.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
+        self._pair_expander.add_row(self._pair_ip_row)
 
         pair_action_row = Adw.ActionRow()
         self._pair_btn = Gtk.Button(label=_("Pair"))
@@ -580,7 +583,7 @@ class PhoneCameraDialog(Adw.Dialog):
 
         self._airplay_name_row = Adw.EntryRow(title=_("Visible name"))
         self._airplay_name_row.set_text("BigCam")
-        name_icon = Gtk.Image.new_from_icon_name("network-server-symbolic")
+        name_icon = Gtk.Image.new_from_icon_name("symbolic-phone-apple")
         name_icon.set_valign(Gtk.Align.CENTER)
         self._airplay_name_row.add_prefix(name_icon)
         name_group.add(self._airplay_name_row)
@@ -594,10 +597,16 @@ class PhoneCameraDialog(Adw.Dialog):
             Gtk.StringList.new(["720p", "1080p", "1440p"])
         )
         self._airplay_res_row.set_selected(1)
+        air_qual_icon = Gtk.Image.new_from_icon_name("video-display-symbolic")
+        air_qual_icon.set_valign(Gtk.Align.CENTER)
+        self._airplay_res_row.add_prefix(air_qual_icon)
         quality_group.add(self._airplay_res_row)
 
         self._airplay_fps_row = Adw.ComboRow(title=_("FPS"))
         self._airplay_fps_row.set_model(Gtk.StringList.new(["30", "60"]))
+        air_fps_icon = Gtk.Image.new_from_icon_name("media-playback-start-symbolic")
+        air_fps_icon.set_valign(Gtk.Align.CENTER)
+        self._airplay_fps_row.add_prefix(air_fps_icon)
         quality_group.add(self._airplay_fps_row)
 
         self._airplay_rotate_row = Adw.ComboRow(title=_("Rotation"))
@@ -609,6 +618,9 @@ class PhoneCameraDialog(Adw.Dialog):
                 _("180°"),
             ])
         )
+        air_rot_icon = Gtk.Image.new_from_icon_name("view-refresh-symbolic")
+        air_rot_icon.set_valign(Gtk.Align.CENTER)
+        self._airplay_rotate_row.add_prefix(air_rot_icon)
         quality_group.add(self._airplay_rotate_row)
 
         content.append(quality_group)
@@ -708,6 +720,9 @@ class PhoneCameraDialog(Adw.Dialog):
         self._port_row = Adw.SpinRow.new_with_range(1024, 65535, 1)
         self._port_row.set_title(_("Port"))
         self._port_row.set_value(8443)
+        port_icon = Gtk.Image.new_from_icon_name("network-server-symbolic")
+        port_icon.set_valign(Gtk.Align.CENTER)
+        self._port_row.add_prefix(port_icon)
         port_group.add(self._port_row)
         content.append(port_group)
 
@@ -816,48 +831,228 @@ class PhoneCameraDialog(Adw.Dialog):
     # ══════════════════════════════════════════════════════════════════
 
     def _on_info_clicked(self, _btn: Gtk.Button) -> None:
-        dialog = Adw.AlertDialog()
-        dialog.set_heading(_("How to connect your phone"))
-        dialog.set_body(
-            "━━━ USB (Android) ━━━\n"
-            + _("The easiest and fastest method.") + "\n"
-            + _("1. On your Android phone, go to Settings → About Phone") + "\n"
-            + _("2. Tap 'Build Number' 7 times to unlock Developer Options") + "\n"
-            + _("3. Go to Settings → Developer Options → enable 'USB Debugging'") + "\n"
-            + _("4. Connect the USB cable to the computer") + "\n"
-            + _("5. Accept the USB Debugging prompt on the phone screen") + "\n"
-            + _("6. Click 'Start' on the USB tab") + "\n\n"
-            + "━━━ Wi-Fi (Android 11+) ━━━\n"
-            + _("No cable needed after the first setup.") + "\n\n"
-            + _("EASIEST: If connected via USB, use the wireless icon") + "\n"
-            + _("on the device selector to switch to Wi-Fi instantly.") + "\n\n"
-            + _("FIRST-TIME PAIRING (without USB):") + "\n"
-            + _("1. Enable Developer Options (same steps as USB above)") + "\n"
-            + _("2. Go to Settings → Developer Options → Wireless Debugging") + "\n"
-            + _("3. Tap 'Pair device with pairing code'") + "\n"
-            + _("   ⚠ Use 'pairing CODE', NOT 'QR Code'") + "\n"
-            + _("4. Note the IP:Port and 6-digit code shown on the phone") + "\n"
-            + _("5. On the Wi-Fi tab, expand 'Pair new device'") + "\n"
-            + _("6. Type the IP:Port and code, then tap 'Pair'") + "\n"
-            + _("   💡 Or tap 'Find' to auto-fill the IP:Port") + "\n"
-            + _("7. After pairing, tap 'Scan' to find the device") + "\n"
-            + _("8. Click 'Start' on the Wi-Fi tab") + "\n\n"
-            + "━━━ AirPlay (iPhone / iPad) ━━━\n"
-            + _("Mirrors the entire screen (not just the camera).") + "\n"
-            + _("1. Make sure both devices are on the same Wi-Fi network") + "\n"
-            + _("2. Click 'Start' on the AirPlay tab") + "\n"
-            + _("3. On your iPhone, open Control Center (swipe down from top-right)") + "\n"
-            + _("4. Tap 'Screen Mirroring' and select 'BigCam'") + "\n\n"
-            + "━━━ Browser (Android / iPhone) ━━━\n"
-            + _("Works with any phone, no app required.") + "\n"
-            + _("1. Connect both devices to the same Wi-Fi network") + "\n"
-            + _("2. Click 'Start' on the Browser tab") + "\n"
-            + _("3. Scan the QR code with your phone or type the URL") + "\n"
-            + _("4. Accept the security warning in the browser") + "\n"
-            + _("5. Tap 'Start' on the phone's browser page")
+        dialog = Adw.Dialog()
+        dialog.set_title(_("How to connect your phone"))
+        dialog.set_content_width(520)
+        dialog.set_content_height(480)
+
+        toolbar_view = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        view_switcher = Adw.ViewSwitcher()
+        view_switcher.set_policy(Adw.ViewSwitcherPolicy.WIDE)
+        header.set_title_widget(view_switcher)
+        toolbar_view.add_top_bar(header)
+
+        stack = Adw.ViewStack()
+        view_switcher.set_stack(stack)
+
+        def _section_header(icon_name: str, title: str, description: str) -> Gtk.Box:
+            """Compact header with small icon, title and subtitle (no scroll)."""
+            box = Gtk.Box(
+                orientation=Gtk.Orientation.VERTICAL,
+                spacing=4,
+                halign=Gtk.Align.CENTER,
+                margin_top=12,
+                margin_bottom=4,
+            )
+            icon = Gtk.Image.new_from_icon_name(icon_name)
+            icon.set_pixel_size(32)
+            icon.add_css_class("dim-label")
+            box.append(icon)
+
+            lbl_title = Gtk.Label(label=title)
+            lbl_title.add_css_class("title-4")
+            box.append(lbl_title)
+
+            lbl_desc = Gtk.Label(label=description)
+            lbl_desc.add_css_class("dim-label")
+            lbl_desc.add_css_class("caption")
+            box.append(lbl_desc)
+
+            return box
+
+        def _step_row(num: int, text: str) -> Adw.ActionRow:
+            row = Adw.ActionRow(title=text)
+            row.set_title_lines(0)
+            lbl = Gtk.Label(label=str(num))
+            lbl.add_css_class("accent")
+            lbl.add_css_class("heading")
+            lbl.set_valign(Gtk.Align.CENTER)
+            lbl.set_size_request(28, 28)
+            row.add_prefix(lbl)
+            return row
+
+        def _tip_row(text: str) -> Adw.ActionRow:
+            row = Adw.ActionRow(title=text)
+            row.set_title_lines(0)
+            icon = Gtk.Image.new_from_icon_name("dialog-information-symbolic")
+            icon.set_valign(Gtk.Align.CENTER)
+            icon.add_css_class("accent")
+            row.add_prefix(icon)
+            return row
+
+        def _warn_row(text: str) -> Adw.ActionRow:
+            row = Adw.ActionRow(title=text)
+            row.set_title_lines(0)
+            icon = Gtk.Image.new_from_icon_name("dialog-warning-symbolic")
+            icon.set_valign(Gtk.Align.CENTER)
+            icon.add_css_class("warning")
+            row.add_prefix(icon)
+            return row
+
+        # ── Browser tab (1st – matches main tab order) ───────────────
+        brw_scroll = Gtk.ScrolledWindow(
+            vexpand=True,
+            hscrollbar_policy=Gtk.PolicyType.NEVER,
         )
-        dialog.add_response("close", _("Close"))
-        dialog.set_default_response("close")
+        brw_clamp = Adw.Clamp(maximum_size=460, tightening_threshold=360)
+        brw_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=16, margin_top=4, margin_bottom=24,
+            margin_start=16, margin_end=16,
+        )
+        brw_box.append(_section_header(
+            "web-browser-symbolic",
+            _("Browser (Android / iPhone)"),
+            _("Works with any phone, no app required."),
+        ))
+
+        brw_group = Adw.PreferencesGroup()
+        brw_group.add(_step_row(1, _("Connect both devices to the same Wi-Fi network")))
+        brw_group.add(_step_row(2, _("Click 'Start' on the Browser tab")))
+        brw_group.add(_step_row(3, _("Scan the QR code with your phone or type the URL")))
+        brw_group.add(_step_row(4, _("Accept the security warning in the browser")))
+        brw_group.add(_step_row(5, _("Tap 'Start' on the phone's browser page")))
+        brw_box.append(brw_group)
+
+        brw_clamp.set_child(brw_box)
+        brw_scroll.set_child(brw_clamp)
+        stack.add_titled_with_icon(
+            brw_scroll, "browser", _("Browser"), "web-browser-symbolic"
+        )
+
+        # ── Wi-Fi tab (2nd) ──────────────────────────────────────────
+        wifi_scroll = Gtk.ScrolledWindow(
+            vexpand=True,
+            hscrollbar_policy=Gtk.PolicyType.NEVER,
+        )
+        wifi_clamp = Adw.Clamp(maximum_size=460, tightening_threshold=360)
+        wifi_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=16, margin_top=4, margin_bottom=24,
+            margin_start=16, margin_end=16,
+        )
+        wifi_box.append(_section_header(
+            "symbolic-phone-android",
+            _("Wi-Fi (Android 11+)"),
+            _("No cable needed after the first setup."),
+        ))
+
+        wifi_tip_group = Adw.PreferencesGroup(title=_("Quick method"))
+        wifi_tip_group.add(_tip_row(
+            _("If connected via USB, use the wireless icon on the "
+              "device selector to switch to Wi-Fi instantly.")
+        ))
+        wifi_box.append(wifi_tip_group)
+
+        wifi_pair_group = Adw.PreferencesGroup(
+            title=_("First-time pairing (without USB)")
+        )
+        wifi_pair_group.add(_step_row(1, _("Enable Developer Options (same steps as USB above)")))
+        wifi_pair_group.add(_step_row(2, _("Go to Settings → Developer Options → Wireless Debugging")))
+        wifi_pair_group.add(_step_row(3, _("Tap 'Pair device with pairing code'")))
+        wifi_pair_group.add(_warn_row(_("Use 'pairing CODE', NOT 'QR Code'")))
+        wifi_pair_group.add(_step_row(4, _("Note the IP:Port and 6-digit code shown on the phone")))
+        wifi_pair_group.add(_step_row(5, _("On the Wi-Fi tab, expand 'Pair new device'")))
+        wifi_pair_group.add(_step_row(6, _("Type the IP:Port and code, then tap 'Pair'")))
+        wifi_pair_group.add(_tip_row(_("Or tap 'Find' to auto-fill the IP:Port")))
+        wifi_pair_group.add(_step_row(7, _("After pairing, tap 'Scan' to find the device")))
+        wifi_pair_group.add(_step_row(8, _("Click 'Start' on the Wi-Fi tab")))
+        wifi_box.append(wifi_pair_group)
+
+        wifi_clamp.set_child(wifi_box)
+        wifi_scroll.set_child(wifi_clamp)
+        stack.add_titled_with_icon(
+            wifi_scroll, "wifi", _("Wi-Fi"), "symbolic-phone-android"
+        )
+
+        # ── USB tab (3rd) ────────────────────────────────────────────
+        usb_scroll = Gtk.ScrolledWindow(
+            vexpand=True,
+            hscrollbar_policy=Gtk.PolicyType.NEVER,
+        )
+        usb_clamp = Adw.Clamp(maximum_size=460, tightening_threshold=360)
+        usb_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=16, margin_top=4, margin_bottom=24,
+            margin_start=16, margin_end=16,
+        )
+        usb_box.append(_section_header(
+            "symbolic-phone-android",
+            _("USB (Android)"),
+            _("The easiest and fastest method."),
+        ))
+
+        usb_group = Adw.PreferencesGroup()
+        usb_group.add(_step_row(1, _("On your Android phone, go to Settings → About Phone")))
+        usb_group.add(_step_row(2, _("Tap 'Build Number' 7 times to unlock Developer Options")))
+        usb_group.add(_step_row(3, _("Go to Settings → Developer Options → enable 'USB Debugging'")))
+        usb_group.add(_step_row(4, _("Connect the USB cable to the computer")))
+        usb_group.add(_step_row(5, _("Accept the USB Debugging prompt on the phone screen")))
+        usb_group.add(_step_row(6, _("Click 'Start' on the USB tab")))
+        usb_box.append(usb_group)
+
+        usb_clamp.set_child(usb_box)
+        usb_scroll.set_child(usb_clamp)
+        stack.add_titled_with_icon(
+            usb_scroll, "usb", _("USB"), "symbolic-phone-android"
+        )
+
+        # ── AirPlay tab (4th) ────────────────────────────────────────
+        air_scroll = Gtk.ScrolledWindow(
+            vexpand=True,
+            hscrollbar_policy=Gtk.PolicyType.NEVER,
+        )
+        air_clamp = Adw.Clamp(maximum_size=460, tightening_threshold=360)
+        air_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=16, margin_top=4, margin_bottom=24,
+            margin_start=16, margin_end=16,
+        )
+        air_box.append(_section_header(
+            "symbolic-phone-apple",
+            _("AirPlay (iPhone / iPad)"),
+            _("Mirrors the entire screen (not just the camera)."),
+        ))
+
+        air_group = Adw.PreferencesGroup()
+        air_group.add(_step_row(1, _("Make sure both devices are on the same Wi-Fi network")))
+        air_group.add(_step_row(2, _("Click 'Start' on the AirPlay tab")))
+        air_group.add(_step_row(3, _("On your iPhone, open Control Center (swipe down from top-right)")))
+        air_group.add(_step_row(4, _("Tap 'Screen Mirroring' and select 'BigCam'")))
+        air_box.append(air_group)
+
+        air_clamp.set_child(air_box)
+        air_scroll.set_child(air_clamp)
+        stack.add_titled_with_icon(
+            air_scroll, "airplay", _("AirPlay"), "symbolic-phone-apple"
+        )
+
+        toolbar_view.set_content(stack)
+        dialog.set_child(toolbar_view)
+
+        # Open the info dialog on the same tab the user is viewing
+        current = self._stack.get_visible_child_name()
+        tab_map = {
+            _TAB_BROWSER: "browser",
+            _TAB_WIFI_ADV: "wifi",
+            _TAB_USB: "usb",
+            _TAB_AIRPLAY: "airplay",
+        }
+        info_tab = tab_map.get(current)
+        if info_tab:
+            stack.set_visible_child_name(info_tab)
+
         dialog.present(self)
 
     # ══════════════════════════════════════════════════════════════════
@@ -1480,12 +1675,84 @@ class PhoneCameraDialog(Adw.Dialog):
             if ok:
                 self._set_dot_color(0.2, 0.78, 0.35)
                 self._set_status(msg)
-                GLib.timeout_add(1500, self._on_refresh_devices, None)
+                # Auto scan + connect + start after successful pairing
+                GLib.timeout_add(1000, self._auto_scan_and_start)
             else:
                 self._set_dot_color(0.85, 0.2, 0.2)
                 self._set_status(msg)
 
         threading.Thread(target=_pair, daemon=True).start()
+
+    def _auto_scan_and_start(self) -> bool:
+        """After pairing, scan for the device and start the camera."""
+        self._set_dot_color(1.0, 0.76, 0.03)
+        self._set_status(_("Scanning for paired device…"))
+
+        def _scan() -> None:
+            devices = self._discover_mdns("_adb-tls-connect._tcp")
+            GLib.idle_add(_on_found, devices)
+
+        def _on_found(devices: list[tuple[str, int, str]]) -> None:
+            if not devices:
+                self._set_dot_color(0.6, 0.6, 0.6)
+                self._set_status(_("No devices found after pairing"))
+                return
+            ip, port, name = devices[0]
+            target = f"{ip}:{port}"
+            self._set_status(_("Connecting to %s…") % name)
+
+            def _connect() -> None:
+                adb = shutil.which("adb") or "adb"
+                try:
+                    result = subprocess.run(
+                        [adb, "connect", target],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    output = (result.stdout + result.stderr).strip()
+                    ok = "connected" in output.lower()
+                except Exception as exc:
+                    output = str(exc)
+                    ok = False
+                GLib.idle_add(_on_connected, ok, name)
+
+            threading.Thread(target=_connect, daemon=True).start()
+
+        def _on_connected(ok: bool, name: str) -> None:
+            if ok:
+                self._set_dot_color(0.2, 0.78, 0.35)
+                self._set_status(_("Connected to %s — starting camera…") % name)
+                # Refresh device list then start
+                def _refresh_and_start() -> None:
+                    ScrcpyCamera.ensure_adb_server()
+                    devs = ScrcpyCamera.list_devices()
+                    GLib.idle_add(_do_start, devs)
+
+                threading.Thread(target=_refresh_and_start, daemon=True).start()
+            else:
+                self._set_dot_color(0.85, 0.2, 0.2)
+                self._set_status(_("Connection failed after pairing"))
+
+        def _do_start(devices: list) -> None:
+            self._devices = devices
+            model = Gtk.StringList.new(
+                [f"{d.model} ({d.transport})" for d in devices]
+            )
+            self._device_row.set_model(model)
+            if devices:
+                self._device_row.set_selected(0)
+                self._adb_wifi_btn.set_visible(
+                    devices[0].transport == "usb"
+                )
+                # Auto-start the camera
+                self._on_scrcpy_start(None)
+            else:
+                self._set_dot_color(0.85, 0.2, 0.2)
+                self._set_status(_("No device available to start"))
+
+        threading.Thread(target=_scan, daemon=True).start()
+        return False  # Don't repeat GLib.timeout
 
     def _on_switch_to_wifi(self, _btn: Gtk.Button) -> None:
         if not self._devices:
@@ -1802,6 +2069,10 @@ class PhoneCameraDialog(Adw.Dialog):
         if self._usb_poll_id:
             GLib.source_remove(self._usb_poll_id)
             self._usb_poll_id = 0
+        # Remove the CSS provider we added to the display
+        display = Gdk.Display.get_default()
+        if display and self._tab_dot_css:
+            Gtk.StyleContext.remove_provider_for_display(display, self._tab_dot_css)
         for sid in self._server_sig_ids:
             self._server.disconnect(sid)
         self._server_sig_ids.clear()
@@ -1840,8 +2111,18 @@ class PhoneCameraDialog(Adw.Dialog):
         dev = VirtualCamera.allocate_device("phone:scrcpy")
         if dev:
             return dev
-        for n in (10, 11, 12, 13):
+        # Fallback: find a v4l2loopback device by checking driver name
+        for n in range(20):
             path = f"/dev/video{n}"
-            if os.path.exists(path):
-                return path
+            if not os.path.exists(path):
+                continue
+            try:
+                result = subprocess.run(
+                    ["v4l2-ctl", "-d", path, "--info"],
+                    capture_output=True, text=True, timeout=2,
+                )
+                if "v4l2 loopback" in result.stdout.lower():
+                    return path
+            except (OSError, subprocess.TimeoutExpired):
+                continue
         return ""

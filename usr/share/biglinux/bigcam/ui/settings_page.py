@@ -654,7 +654,10 @@ class SettingsPage(Gtk.ScrolledWindow):
         import subprocess
 
         os.makedirs(path, exist_ok=True)
-        subprocess.Popen(["xdg-open", path])
+        proc = subprocess.Popen(["xdg-open", path])
+        # Avoid zombie: detach by waiting in a thread
+        import threading
+        threading.Thread(target=proc.wait, daemon=True).start()
 
     # -- Reset buttons -------------------------------------------------------
 

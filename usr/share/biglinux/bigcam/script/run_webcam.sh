@@ -1,12 +1,13 @@
 #!/bin/bash
+set -uo pipefail
 exec 2>&1
 
-USB_PORT="$1"
+USB_PORT="${1:-}"
 UDP_PORT="${2:-5000}"
 CAM_NAME="${3:-Canon DSLR}"
 # Remove commas to prevent modprobe array parsing errors
 CAM_NAME="${CAM_NAME//,/}"
-CARD_LABELS="BigCam Virtual,BigCam Virtual 2,BigCam Virtual 3,BigCam Virtual 4"
+CARD_LABELS="BigCam Virtual 1,BigCam Virtual 2,BigCam Virtual 3,BigCam Virtual 4"
 
 
 if [ -n "$USB_PORT" ]; then
@@ -35,7 +36,8 @@ sleep 2
 
 # Load v4l2loopback with 4 virtual devices if not loaded
 if ! lsmod | grep -q v4l2loopback; then
-  sudo -n modprobe v4l2loopback devices=4 exclusive_caps=1 max_buffers=4 "card_label=$CARD_LABELS"
+  sudo -n modprobe v4l2loopback devices=4 exclusive_caps=1,1,1,1 max_buffers=4 \
+    video_nr=10,11,12,13 "card_label=$CARD_LABELS"
   sleep 1
 else
   # If loaded with exclusive_caps=0, reload only if no device is in use
@@ -43,7 +45,8 @@ else
     if ! fuser /dev/video* >/dev/null 2>&1; then
       sudo -n modprobe -r v4l2loopback 2>/dev/null
       sleep 1
-      sudo -n modprobe v4l2loopback devices=4 exclusive_caps=1 max_buffers=4 "card_label=$CARD_LABELS"
+      sudo -n modprobe v4l2loopback devices=4 exclusive_caps=1,1,1,1 max_buffers=4 \
+        video_nr=10,11,12,13 "card_label=$CARD_LABELS"
       sleep 1
     fi
   fi
@@ -51,7 +54,8 @@ fi
 
 # Find a free v4l2loopback virtual device
 DEVICE_VIDEO=""
-for dev in $(ls -v /dev/video* 2>/dev/null); do
+for dev in /dev/video*; do
+  [ -e "$dev" ] || continue
   # Check if it's a v4l2loopback device via driver name
   DRIVER=$(v4l2-ctl -d "$dev" --info 2>/dev/null | grep "Driver name" | sed 's/.*: //')
   if echo "$DRIVER" | grep -qi "v4l2.*loopback\|loopback"; then
@@ -95,7 +99,7 @@ disown
 # Wait for it to stabilize
 sleep 3
 
-if kill -0 $PID 2>/dev/null; then
+if kill -0 "$PID" 2>/dev/null; then
   echo "SUCCESS: $DEVICE_VIDEO"
   exit 0
 else

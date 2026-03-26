@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import gi
 
@@ -41,6 +43,7 @@ class PhotoGallery(Gtk.Box):
         self._selected: set[str] = set()
         self._view = "grid"
         self._items: list[str] = []
+        self._thumb_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="thumb")
 
         # ── Header ───────────────────────────────────────────────────
         header = Gtk.Box(
@@ -232,18 +235,26 @@ class PhotoGallery(Gtk.Box):
     # ── Grid item ────────────────────────────────────────────────────
 
     def _make_grid_item(self, path: str) -> Gtk.Widget | None:
-        try:
-            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-                path, self.THUMB_SIZE, self.THUMB_SIZE, True
-            )
-        except Exception:
-            return None
-
-        texture = Gdk.Texture.new_for_pixbuf(pixbuf)
-        picture = Gtk.Picture.new_for_paintable(texture)
+        picture = Gtk.Picture()
         picture.set_content_fit(Gtk.ContentFit.COVER)
         picture.set_size_request(self.THUMB_SIZE, self.THUMB_SIZE)
         picture.add_css_class("card")
+
+        # Load thumbnail asynchronously
+        def _load():
+            try:
+                return GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                    path, self.THUMB_SIZE, self.THUMB_SIZE, True
+                )
+            except Exception:
+                return None
+
+        def _on_loaded(pixbuf):
+            if pixbuf:
+                texture = Gdk.Texture.new_for_pixbuf(pixbuf)
+                picture.set_paintable(texture)
+
+        self._thumb_pool.submit(lambda: GLib.idle_add(_on_loaded, _load()))
 
         overlay = Gtk.Overlay()
 
@@ -302,22 +313,32 @@ class PhotoGallery(Gtk.Box):
         row = Adw.ActionRow(title=name, subtitle=f"{size}  ·  {date}")
         row.set_activatable(not self._selection_mode)
 
-        # Small thumbnail prefix
-        try:
-            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-                path, self.LIST_THUMB, self.LIST_THUMB, True
-            )
-            texture = Gdk.Texture.new_for_pixbuf(pixbuf)
-            pic = Gtk.Picture.new_for_paintable(texture)
-            pic.set_content_fit(Gtk.ContentFit.COVER)
-            pic.set_size_request(self.LIST_THUMB, self.LIST_THUMB)
-            frame = Gtk.Frame()
-            frame.set_child(pic)
-            row.add_prefix(frame)
-        except Exception:
-            icon = Gtk.Image.new_from_icon_name("image-x-generic-symbolic")
-            icon.set_pixel_size(self.LIST_THUMB)
-            row.add_prefix(icon)
+        # Small thumbnail prefix (loaded asynchronously)
+        frame = Gtk.Frame()
+        pic = Gtk.Picture()
+        pic.set_content_fit(Gtk.ContentFit.COVER)
+        pic.set_size_request(self.LIST_THUMB, self.LIST_THUMB)
+        frame.set_child(pic)
+        row.add_prefix(frame)
+
+        def _load_list_thumb():
+            try:
+                return GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                    path, self.LIST_THUMB, self.LIST_THUMB, True
+                )
+            except Exception:
+                return None
+
+        def _on_list_thumb(pixbuf):
+            if pixbuf:
+                texture = Gdk.Texture.new_for_pixbuf(pixbuf)
+                pic.set_paintable(texture)
+            else:
+                icon = Gtk.Image.new_from_icon_name("image-x-generic-symbolic")
+                icon.set_pixel_size(self.LIST_THUMB)
+                frame.set_child(icon)
+
+        self._thumb_pool.submit(lambda: GLib.idle_add(_on_list_thumb, _load_list_thumb()))
 
         if self._selection_mode:
             check = Gtk.CheckButton(active=path in self._selected)
@@ -415,5 +436,4 @@ class PhotoGallery(Gtk.Box):
             os.remove(path)
         except OSError:
             pass
-        self.refresh()
         self.refresh()

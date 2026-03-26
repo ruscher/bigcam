@@ -24,7 +24,7 @@ _DEFAULTS: dict[str, object] = {
     "grid_overlay": False,
     "overlay-opacity": 75,
     "controls-opacity": 90,
-    "window-opacity": 100,
+    "window-opacity": 50,
     # Photo
     "photo-directory": "",
     "photo-format": "jpg",
@@ -51,7 +51,7 @@ _DEFAULTS: dict[str, object] = {
     # IP Cameras (list serialised as JSON array)
     "ip_cameras": [],
     # Resource monitor
-    "resource-monitor-enabled": True,
+    "resource-monitor-enabled": False,
     "resource-warnings-dismissed": [],
 }
 
@@ -71,32 +71,33 @@ class SettingsManager:
     # -- public API ----------------------------------------------------------
 
     def get(self, key: str, default: object = None) -> object:
-        fallback = default if default is not None else _DEFAULTS.get(key, "")
-        value = self._data.get(key, fallback)
-        # coerce to the same type as the fallback
-        if isinstance(fallback, bool):
-            if isinstance(value, bool):
-                return value
-            if isinstance(value, str):
-                low = value.lower()
-                if low in _BOOL_TRUE:
-                    return True
-                if low in _BOOL_FALSE:
-                    return False
-            return bool(value)
-        if isinstance(fallback, int):
-            try:
-                return int(value)
-            except (ValueError, TypeError):
-                return fallback
-        if isinstance(fallback, float):
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                return fallback
-        if isinstance(fallback, list):
-            return value if isinstance(value, list) else fallback
-        return str(value) if value is not None else ""
+        with self._lock:
+            fallback = default if default is not None else _DEFAULTS.get(key, "")
+            value = self._data.get(key, fallback)
+            # coerce to the same type as the fallback
+            if isinstance(fallback, bool):
+                if isinstance(value, bool):
+                    return value
+                if isinstance(value, str):
+                    low = value.lower()
+                    if low in _BOOL_TRUE:
+                        return True
+                    if low in _BOOL_FALSE:
+                        return False
+                return bool(value)
+            if isinstance(fallback, int):
+                try:
+                    return int(value)
+                except (ValueError, TypeError):
+                    return fallback
+            if isinstance(fallback, float):
+                try:
+                    return float(value)
+                except (ValueError, TypeError):
+                    return fallback
+            if isinstance(fallback, list):
+                return value if isinstance(value, list) else fallback
+            return str(value) if value is not None else ""
 
     def set(self, key: str, value: object) -> None:
         with self._lock:
@@ -106,15 +107,16 @@ class SettingsManager:
     # -- persistence ---------------------------------------------------------
 
     def _load(self) -> None:
-        if not os.path.isfile(self._path):
-            self._data = {}
-            return
-        try:
-            with open(self._path, "r", encoding="utf-8") as fh:
-                self._data = json.load(fh)
-        except Exception:
-            log.warning("Failed to load settings from %s", self._path, exc_info=True)
-            self._data = {}
+        with self._lock:
+            if not os.path.isfile(self._path):
+                self._data = {}
+                return
+            try:
+                with open(self._path, "r", encoding="utf-8") as fh:
+                    self._data = json.load(fh)
+            except Exception:
+                log.warning("Failed to load settings from %s", self._path, exc_info=True)
+                self._data = {}
 
     def _save(self) -> None:
         try:

@@ -339,7 +339,6 @@ class ToolsPage(Gtk.ScrolledWindow):
             return True
         self._smile_scanning = True
         sensitivity = int(self._sensitivity_scale.get_value())
-        import threading
         threading.Thread(
             target=self._detect_smile_worker,
             args=(frame.copy(), sensitivity),

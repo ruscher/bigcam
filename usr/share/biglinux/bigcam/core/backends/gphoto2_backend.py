@@ -64,7 +64,8 @@ class GPhoto2Backend(CameraBackend):
 
     @staticmethod
     def _release_usb_device(port: str) -> None:
-        """Kill any process (GVFS etc.) holding the USB device so gphoto2 can open it."""
+        """Kill GVFS processes holding the USB device so gphoto2 can open it."""
+        _GVFS_PATTERNS = ("gvfs", "gphoto")
         try:
             bus, dev = port.replace("usb:", "").split(",")
             usb_path = f"/dev/bus/usb/{bus}/{dev}"
@@ -77,6 +78,7 @@ class GPhoto2Backend(CameraBackend):
                 timeout=5,
             )
             pids = result.stdout.strip().split()
+            killed = False
             for pid_str in pids:
                 pid_str = pid_str.strip().rstrip(":")
                 if not pid_str.isdigit():
@@ -88,13 +90,18 @@ class GPhoto2Backend(CameraBackend):
                 try:
                     cmdline_path = f"/proc/{pid}/cmdline"
                     with open(cmdline_path) as f:
-                        cmdline = f.read()
-                    log.debug(f"PID {pid} holding {usb_path}: {cmdline[:120]}")
-                    os.kill(pid, signal.SIGKILL)
-                    log.debug(f"Killed PID {pid}")
+                        cmdline = f.read().lower()
+                    log.debug("PID %d holding %s: %s", pid, usb_path, cmdline[:120])
+                    # Only kill GVFS-related processes, not arbitrary ones
+                    if any(p in cmdline for p in _GVFS_PATTERNS):
+                        os.kill(pid, signal.SIGKILL)
+                        log.debug("Killed GVFS PID %d", pid)
+                        killed = True
+                    else:
+                        log.info("PID %d on %s is not GVFS — skipping", pid, usb_path)
                 except (ProcessLookupError, FileNotFoundError, PermissionError):
                     pass
-            if pids:
+            if killed:
                 time.sleep(3)
         except Exception:
             pass
@@ -648,7 +655,7 @@ class GPhoto2Backend(CameraBackend):
                 timeout=10,
             )
             return True
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
             return False
 
     # -- gstreamer -----------------------------------------------------------

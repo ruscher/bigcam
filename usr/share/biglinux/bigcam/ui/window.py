@@ -87,6 +87,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._airplay_receiver.connect("connected", self._on_airplay_receiver_connected)
         self._airplay_receiver.connect("disconnected", self._on_airplay_receiver_disconnected)
         self._resource_monitor = ResourceMonitor()
+        self._controls_cache: dict[str, list] = {}
+        self._vcam_dialog_shown: set[str] = set()
 
         self._build_ui()
         self._setup_actions()
@@ -1023,7 +1025,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
         def _apply_always_on_top() -> None:
             script = f'workspace.activeWindow.keepAbove = {"true" if on_top else "false"};'
-            script_path = '/tmp/kwin_bigcam_above.js'
+            runtime_dir = os.environ.get('XDG_RUNTIME_DIR', '/tmp')
+            script_path = os.path.join(runtime_dir, 'kwin_bigcam_above.js')
             plugin_name = 'bigcam_above'
             try:
                 with open(script_path, 'w') as f:
@@ -1031,19 +1034,19 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                 result = subprocess.run(
                     ['qdbus', 'org.kde.KWin', '/Scripting',
                      'org.kde.kwin.Scripting.loadScript', script_path, plugin_name],
-                    capture_output=True, text=True,
+                    capture_output=True, text=True, timeout=5,
                 )
                 script_id = result.stdout.strip()
                 if script_id.isdigit():
                     subprocess.run(
                         ['qdbus', 'org.kde.KWin', f'/Scripting/Script{script_id}',
                          'org.kde.kwin.Script.run'],
-                        capture_output=True,
+                        capture_output=True, timeout=5,
                     )
                 subprocess.run(
                     ['qdbus', 'org.kde.KWin', '/Scripting',
                      'org.kde.kwin.Scripting.unloadScript', plugin_name],
-                    capture_output=True,
+                    capture_output=True, timeout=5,
                 )
             except (FileNotFoundError, OSError):
                 pass
@@ -1261,10 +1264,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
     # -- signal handlers -----------------------------------------------------
 
-    # Cache controls per camera to avoid PTP re-access
-    _controls_cache: dict[str, list] = {}
-    # Track cameras that already showed the vcam creation dialog
-    _vcam_dialog_shown: set[str] = set()
+    # Cache controls per camera to avoid PTP re-access (instance-level)
+    # Track cameras that already showed the vcam creation dialog (instance-level)
 
     def _pick_preferred_format(self, camera: CameraInfo):
         """Return a VideoFormat matching user resolution/FPS preferences, or None."""
@@ -2044,6 +2045,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             _("Phone Mic (Browser)"),
             volume_cb=self._phone_server.set_audio_volume,
             mute_cb=self._phone_server.set_audio_muted,
+            active=False,
         )
 
         toast = Adw.Toast.new(f"📱  {phone_cam.name}")
@@ -2109,8 +2111,36 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
         pid = self._airplay_receiver.pid
         if pid is not None:
+            def _airplay_volume_cb(value: float, _pid: int = pid) -> None:
+                idx = AudioMonitor._find_sink_input_by_pid(_pid)
+                if idx is not None:
+                    pct = int(round(value * 100))
+                    try:
+                        subprocess.run(
+                            ["pactl", "set-sink-input-volume", str(idx), f"{pct}%"],
+                            capture_output=True, timeout=3,
+                        )
+                    except (FileNotFoundError, subprocess.TimeoutExpired):
+                        pass
+
+            def _airplay_mute_cb(muted: bool, _pid: int = pid) -> None:
+                idx = AudioMonitor._find_sink_input_by_pid(_pid)
+                if idx is not None:
+                    try:
+                        subprocess.run(
+                            ["pactl", "set-sink-input-mute", str(idx),
+                             "1" if muted else "0"],
+                            capture_output=True, timeout=3,
+                        )
+                    except (FileNotFoundError, subprocess.TimeoutExpired):
+                        pass
+
             self._audio_monitor.add_external_source(
-                "airplay", _("AirPlay Audio"), pid
+                "airplay",
+                _("AirPlay Audio"),
+                volume_cb=_airplay_volume_cb,
+                mute_cb=_airplay_mute_cb,
+                active=False,
             )
 
         toast = Adw.Toast.new(f"📱  {airplay_cam.name}")
@@ -2172,7 +2202,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         pid = self._scrcpy_camera.pid
         if pid is not None:
             self._audio_monitor.add_external_source(
-                "scrcpy", _("Phone Mic (scrcpy)"), pid
+                "scrcpy", _("Phone Mic (scrcpy)"), pid, active=False
             )
 
         toast = Adw.Toast.new(f"📱  {scrcpy_cam.name}")
@@ -2323,6 +2353,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
         def _kill_users() -> None:
             own_pid = str(os.getpid())
+            own_uid = os.getuid()
             try:
                 result = subprocess.run(
                     ["fuser", device_path],
@@ -2334,6 +2365,21 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                 for pid in pids:
                     pid = pid.strip().rstrip("m")
                     if pid.isdigit() and pid != own_pid:
+                        # Only signal processes owned by the current user
+                        try:
+                            stat_path = f"/proc/{pid}/status"
+                            with open(stat_path) as f:
+                                for line in f:
+                                    if line.startswith("Uid:"):
+                                        proc_uid = int(line.split()[1])
+                                        break
+                                else:
+                                    continue
+                            if proc_uid != own_uid:
+                                log.warning("Skipping PID %s (UID %d != %d)", pid, proc_uid, own_uid)
+                                continue
+                        except (OSError, ValueError):
+                            continue
                         try:
                             os.kill(int(pid), sig.SIGTERM)
                         except ProcessLookupError:
@@ -2596,8 +2642,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
     def _on_close(self, _window: Adw.ApplicationWindow) -> bool:
         has_active_stream = (
             self._stream_engine.is_playing()
-            or self._stream_engine._bg_vcam_feeders
-            or self._stream_engine._bg_vcam_pipelines
+            or self._stream_engine.has_active_bg_vcams()
         )
         if has_active_stream:
             # Build description with active camera name and virtual cam status
@@ -2766,8 +2811,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             feature_id="virtual-camera",
             label=_("Virtual camera"),
             description=_("v4l2loopback output for video conferencing"),
-            is_active=lambda: bool(se._vcam_device),
-            disable=lambda: se._stop_vcam(),
+            is_active=lambda: se.vcam_active,
+            disable=lambda: se.stop_vcam(),
             estimated_cpu=20.0,
             estimated_ram_mb=80.0,
         ))
@@ -2775,7 +2820,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             feature_id="bg-vcam-feeders",
             label=_("Background virtual cameras"),
             description=_("Virtual camera feeds for inactive cameras"),
-            is_active=lambda: bool(se._bg_vcam_feeders),
+            is_active=lambda: se.has_active_bg_vcams(),
             disable=lambda: se.stop_all_bg_vcams(),
             estimated_cpu=30.0,
             estimated_ram_mb=100.0,

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -113,7 +115,7 @@ class VirtualCameraPage(Gtk.Box):
         cr.set_source_rgb(r, g, b)
         cx, cy = width / 2, height / 2
         radius = min(width, height) / 2
-        cr.arc(cx, cy, radius, 0, 2 * 3.14159)
+        cr.arc(cx, cy, radius, 0, 2 * math.pi)
         cr.fill()
 
     def _set_dot_color(self, r: float, g: float, b: float) -> None:

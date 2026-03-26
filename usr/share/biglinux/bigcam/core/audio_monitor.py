@@ -33,7 +33,8 @@ def _get_usb_parent(sysfs_path: str) -> str | None:
 def _video_label(dev_name: str) -> str:
     """Return a short label from the V4L2 device name."""
     try:
-        raw = open(f"/sys/class/video4linux/{dev_name}/name").read().strip()
+        with open(f"/sys/class/video4linux/{dev_name}/name") as f:
+            raw = f.read().strip()
     except OSError:
         return dev_name
     # Remove USB VID/PID suffixes like "(345f:2109): USB Vid"
@@ -154,6 +155,7 @@ class AudioMonitor(GObject.Object):
         self._muted: bool = False
         # External sources (e.g. AirPlay) controlled via pactl
         self._external: dict[str, dict] = {}  # name → {label, pid, index, active}
+        self._ext_lock = threading.Lock()
 
     # -- public API ----------------------------------------------------------
 
@@ -161,8 +163,9 @@ class AudioMonitor(GObject.Object):
     def sources(self) -> list[tuple[str, str]]:
         """Available audio sources as ``[(pulse_name, label), ...]``."""
         result = list(self._sources)
-        for name, info in self._external.items():
-            result.append((name, info["label"]))
+        with self._ext_lock:
+            for name, info in self._external.items():
+                result.append((name, info["label"]))
         return result
 
     @property
@@ -249,8 +252,11 @@ class AudioMonitor(GObject.Object):
         self._muted = muted
         for vol in self._volume_elements.values():
             vol.set_property("mute", muted)
-        for name in self._external:
-            self._pactl_mute_external(name, muted)
+        for name, info in self._external.items():
+            if muted:
+                self._pactl_mute_external(name, True)
+            elif info.get("active", True):
+                self._pactl_mute_external(name, False)
         self.emit("mute-changed", muted)
 
     def toggle_mute(self) -> None:
@@ -265,6 +271,7 @@ class AudioMonitor(GObject.Object):
         pid: int = 0,
         volume_cb: Callable[[float], None] | None = None,
         mute_cb: Callable[[bool], None] | None = None,
+        active: bool = True,
     ) -> None:
         """Register an external audio source.
 
@@ -272,20 +279,33 @@ class AudioMonitor(GObject.Object):
         for volume/mute control (e.g. GStreamer volume element).
         Otherwise, the sink-input is resolved by PID and controlled via pactl.
         """
-        self._external[name] = {
-            "label": label,
-            "pid": pid,
-            "index": None,
-            "active": True,
-            "volume_cb": volume_cb,
-            "mute_cb": mute_cb,
-        }
+        with self._ext_lock:
+            self._external[name] = {
+                "label": label,
+                "pid": pid,
+                "index": None,
+                "active": active,
+                "volume_cb": volume_cb,
+                "mute_cb": mute_cb,
+            }
         self._source_volumes.setdefault(name, self._volume)
         if volume_cb and mute_cb:
             # Apply current volume/mute immediately
             volume_cb(self._source_volumes.get(name, self._volume))
-            if self._muted:
+            if self._muted or not active:
                 mute_cb(True)
+                # Retry mute in case the audio sink-input hasn't appeared yet
+                def _retry_mute(
+                    _name: str = name, _cb: Callable[[bool], None] = mute_cb
+                ) -> bool:
+                    if _name not in self._external:
+                        return GLib.SOURCE_REMOVE
+                    if not self._external[_name].get("active", True):
+                        _cb(True)
+                    return GLib.SOURCE_REMOVE
+
+                for delay_ms in (2000, 5000, 10000, 20000):
+                    GLib.timeout_add(delay_ms, _retry_mute)
         elif pid:
             threading.Thread(
                 target=self._resolve_sink_input, args=(name, pid), daemon=True
@@ -294,24 +314,30 @@ class AudioMonitor(GObject.Object):
 
     def remove_external_source(self, name: str) -> None:
         """Unregister an external audio source."""
-        self._external.pop(name, None)
+        with self._ext_lock:
+            self._external.pop(name, None)
         self._source_volumes.pop(name, None)
         self.emit("sources-changed")
 
     def _resolve_sink_input(self, name: str, pid: int) -> None:
         """Find the PulseAudio sink-input index for a given PID (background)."""
         for _attempt in range(15):
-            if name not in self._external:
-                return
+            with self._ext_lock:
+                if name not in self._external:
+                    return
             idx = self._find_sink_input_by_pid(pid)
             if idx is not None:
-                if name in self._external:
-                    self._external[name]["index"] = idx
-                    vol = self._source_volumes.get(name, self._volume)
-                    self._pactl_volume_external(name, vol)
-                    if self._muted:
-                        self._pactl_mute_external(name, True)
-                    log.info("Resolved sink-input #%d for external source %s (pid %d)", idx, name, pid)
+                with self._ext_lock:
+                    if name in self._external:
+                        self._external[name]["index"] = idx
+                        src_active = self._external[name].get("active", True)
+                    else:
+                        return
+                vol = self._source_volumes.get(name, self._volume)
+                self._pactl_volume_external(name, vol)
+                if self._muted or not src_active:
+                    self._pactl_mute_external(name, True)
+                log.info("Resolved sink-input #%d for external source %s (pid %d)", idx, name, pid)
                 return
             import time
             time.sleep(1)
@@ -573,9 +599,11 @@ class AudioMonitor(GObject.Object):
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
 
-        # Re-mute external sources that the user intentionally deactivated
+        # Re-apply per-source volume and mute state for all external sources
         for name, info in self._external.items():
-            if not info.get("active", True):
+            vol = self._source_volumes.get(name, self._volume)
+            self._pactl_volume_external(name, vol)
+            if not info.get("active", True) or self._muted:
                 self._pactl_mute_external(name, True)
 
         return GLib.SOURCE_REMOVE

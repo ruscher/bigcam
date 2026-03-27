@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -78,6 +79,7 @@ class VirtualCamera:
     _dynamic_devices: set[str] = set()
     # Sequential counter for "BigCam Virtual N" naming
     _next_vcam_number: int = 1
+    _labels_synced: bool = False
     _alloc_lock = threading.RLock()
 
     @staticmethod
@@ -115,6 +117,54 @@ class VirtualCamera:
         except Exception:
             log.debug("v4l2loopback device scan failed", exc_info=True)
         return devices
+
+    @classmethod
+    def _get_device_labels(cls) -> dict[str, str]:
+        """Return mapping of device_path → card label for v4l2loopback devices."""
+        labels: dict[str, str] = {}
+        try:
+            result = subprocess.run(
+                ["v4l2-ctl", "--list-devices"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                return labels
+            current_label = ""
+            for line in result.stdout.splitlines():
+                line_s = line.strip()
+                if line_s.startswith("/dev/video"):
+                    if current_label:
+                        labels[line_s] = current_label
+                else:
+                    m = re.match(r"^(.+?)\s*\(", line_s)
+                    current_label = m.group(1).strip() if m else ""
+        except Exception:
+            log.debug("Failed to scan device labels", exc_info=True)
+        return labels
+
+    @classmethod
+    def _get_existing_labels(cls) -> set[str]:
+        """Return the set of card labels currently used by v4l2loopback devices."""
+        return set(cls._get_device_labels().values())
+
+    @classmethod
+    def _sync_vcam_counter(cls) -> None:
+        """Advance _next_vcam_number past any existing device labels."""
+        if cls._labels_synced:
+            return
+        cls._labels_synced = True
+        labels = cls._get_existing_labels()
+        max_n = 0
+        pattern = re.compile(re.escape(cls._name_template) + r"\s+(\d+)$")
+        for label in labels:
+            m = pattern.match(label)
+            if m:
+                max_n = max(max_n, int(m.group(1)))
+        if max_n >= cls._next_vcam_number:
+            cls._next_vcam_number = max_n + 1
+            log.debug("Synced _next_vcam_number to %d from existing labels", cls._next_vcam_number)
 
     @staticmethod
     def find_loopback_device() -> str:
@@ -213,14 +263,33 @@ class VirtualCamera:
                 log.warning("Max virtual cameras (%d) reached, cannot allocate for %s",
                             cls._max_devices, camera_id)
                 return ""
-            # Try an existing free device first
-            device = cls.find_free_loopback_device()
-            if not device and cls._is_dynamic_supported():
-                # Create a new device dynamically
-                label = f"{cls._name_template} {cls._next_vcam_number}"
-                device = cls._add_dynamic_device(label)
-                if device:
-                    cls._next_vcam_number += 1
+            device = ""
+            if cls._is_dynamic_supported():
+                # Prefer a free device whose label matches the template
+                dev_labels = cls._get_device_labels()
+                tpl_pat = re.compile(
+                    re.escape(cls._name_template) + r"\s+\d+$"
+                )
+                allocated = set(cls._allocations.values())
+                for dev in cls.find_all_loopback_devices():
+                    if dev not in allocated:
+                        lbl = dev_labels.get(dev, "")
+                        if lbl and tpl_pat.match(lbl):
+                            device = dev
+                            break
+                if not device:
+                    # No matching free device — create a dynamic one
+                    cls._sync_vcam_counter()
+                    existing = cls._get_existing_labels()
+                    while f"{cls._name_template} {cls._next_vcam_number}" in existing:
+                        cls._next_vcam_number += 1
+                    label = f"{cls._name_template} {cls._next_vcam_number}"
+                    device = cls._add_dynamic_device(label)
+                    if device:
+                        cls._next_vcam_number += 1
+            else:
+                # Fallback: use any free loopback device (no dynamic support)
+                device = cls.find_free_loopback_device()
             if device:
                 cls._allocations[camera_id] = device
                 log.info("Allocated %s for camera %s", device, camera_id)
@@ -242,16 +311,39 @@ class VirtualCamera:
 
     @classmethod
     def cleanup_dynamic_devices(cls) -> None:
-        """Delete all dynamically created v4l2loopback devices (app exit)."""
+        """Delete all dynamically created v4l2loopback devices.
+
+        Also removes stale devices from previous sessions that are no
+        longer tracked by the app (prevents device accumulation).
+        """
         with cls._alloc_lock:
-            devices_to_delete = list(cls._dynamic_devices)
+            tracked = list(cls._dynamic_devices)
             cls._allocations.clear()
-        for dev in devices_to_delete:
-            cls._delete_dynamic_device(dev)
+        deleted = 0
+        for dev in tracked:
+            if cls._delete_dynamic_device(dev):
+                deleted += 1
+        # Clean up stale v4l2loopback devices not tracked in this session
+        if cls._is_dynamic_supported():
+            all_loopback = cls.find_all_loopback_devices()
+            stale = [d for d in all_loopback if d not in tracked]
+            for dev in stale:
+                if cls._delete_dynamic_device(dev):
+                    deleted += 1
         with cls._alloc_lock:
             cls._dynamic_devices.clear()
             cls._next_vcam_number = 1
-        log.info("Cleaned up %d dynamic v4l2loopback devices", len(devices_to_delete))
+            cls._labels_synced = False
+        log.info("Cleaned up %d v4l2loopback devices", deleted)
+
+    @classmethod
+    def reset_all_allocations(cls) -> None:
+        """Delete dynamic devices and clear allocations (name template change).
+
+        After calling this, the next allocate_device() calls will create
+        new devices with the current name template.
+        """
+        cls.cleanup_dynamic_devices()
 
     @classmethod
     def load_module(cls, card_label: str | None = None) -> bool:
@@ -318,7 +410,13 @@ class VirtualCamera:
 
     @classmethod
     def set_name_template(cls, template: str) -> None:
-        cls._name_template = template or "BigCam Virtual"
+        new_template = template or "BigCam Virtual"
+        if new_template == cls._name_template:
+            return
+        cls._name_template = new_template
+        # Reset label sync so the counter re-syncs with existing device names
+        cls._labels_synced = False
+        cls._next_vcam_number = 1
 
     @classmethod
     def get_name_template(cls) -> str:

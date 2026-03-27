@@ -31,7 +31,7 @@ let
 in
 stdenv.mkDerivation {
   pname = "bigcam";
-  version = "4.4.3";
+  version = "4.4.4";
 
   src = ./.;
 

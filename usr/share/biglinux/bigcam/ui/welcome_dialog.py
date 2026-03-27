@@ -60,72 +60,66 @@ class WelcomeDialog:
 
         content.append(header)
 
-        # Two columns of features
-        columns = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=24)
-        columns.set_margin_top(18)
-        columns.set_halign(Gtk.Align.CENTER)
-        columns.set_hexpand(True)
-
-        left_features = [
+        # Two columns of features (Grid ensures row-aligned pairs)
+        features = [
+            # (left_icon, left_title, left_desc, right_icon, right_title, right_desc)
             (
                 "camera-photo-symbolic",
                 _("Photo & Video Capture"),
                 _("Take photos and record videos\nwith timer and countdown support"),
-            ),
-            (
-                "object-flip-horizontal-symbolic",
-                _("Mirror Preview"),
-                _("Flip the camera preview\nhorizontally like a mirror"),
-            ),
-            (
-                "applications-graphics-symbolic",
-                _("Real-Time Effects"),
-                _("Apply brightness, contrast, blur,\nsepia, vignette and more effects live"),
-            ),
-            (
-                "phone-symbolic",
-                _("Phone as Webcam"),
-                _("Use your smartphone camera\nwirelessly as a webcam"),
-            ),
-        ]
-
-        right_features = [
-            (
                 "camera-switch-symbolic",
                 _("Multiple Cameras"),
                 _("Switch between USB, IP, and\nvirtual cameras with hotplug support"),
             ),
             (
+                "object-flip-horizontal-symbolic",
+                _("Mirror Preview"),
+                _("Flip the camera preview\nhorizontally like a mirror"),
                 "scanner-symbolic",
                 _("QR Code Scanner"),
                 _("Scan QR codes and barcodes\ndirectly from the camera feed"),
             ),
             (
+                "applications-graphics-symbolic",
+                _("Real-Time Effects"),
+                _("Apply brightness, contrast, blur,\nsepia, vignette and more effects live"),
                 "camera-web-symbolic",
                 _("Virtual Camera"),
                 _("Create a virtual camera device\nfor use in video calls"),
             ),
+            (
+                "phone-symbolic",
+                _("Phone as Webcam"),
+                _("Use your smartphone camera\nwirelessly as a webcam"),
+                "preferences-other-symbolic",
+                _("Advanced Controls"),
+                _("Fine-tune exposure, white balance\nand save per-camera profiles"),
+            ),
         ]
 
-        left_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        left_col.set_hexpand(True)
-        for icon_name, feat_title, feat_desc in left_features:
-            left_col.append(self._create_feature_box(icon_name, feat_title, feat_desc))
-        columns.append(left_col)
+        grid = Gtk.Grid()
+        grid.set_row_spacing(16)
+        grid.set_column_spacing(24)
+        grid.set_margin_top(18)
+        grid.set_halign(Gtk.Align.CENTER)
+        grid.set_hexpand(True)
 
-        right_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        right_col.set_hexpand(True)
-        for icon_name, feat_title, feat_desc in right_features:
-            right_col.append(self._create_feature_box(icon_name, feat_title, feat_desc))
-        columns.append(right_col)
+        for row_idx, (li, lt, ld, ri, rt, rd) in enumerate(features):
+            left_box = self._create_feature_box(li, lt, ld)
+            left_box.set_hexpand(True)
+            grid.attach(left_box, 0, row_idx, 1, 1)
 
-        content.append(columns)
+            right_box = self._create_feature_box(ri, rt, rd)
+            right_box.set_hexpand(True)
+            grid.attach(right_box, 1, row_idx, 1, 1)
+
+        content.append(grid)
 
         # Keyboard shortcuts hint
         shortcuts_label = Gtk.Label()
         shortcuts_label.set_markup(
             "<span size='small'>"
-            + _("Tip: Press Space to capture, Ctrl+R to record, Tab to toggle sidebar")
+            + _("Tip: Press Ctrl+P to capture, Ctrl+R to record, Tab to toggle sidebar")
             + "</span>"
         )
         shortcuts_label.add_css_class("dim-label")
@@ -171,10 +165,14 @@ class WelcomeDialog:
         outer.append(sep)
         outer.append(bottom_bar)
 
+        # Wrap in WindowHandle so dragging empty space moves the window
+        handle = Gtk.WindowHandle()
+        handle.set_child(outer)
+
         self._dialog = Adw.Dialog()
         self._dialog.set_content_width(900)
         self._dialog.set_content_height(650)
-        self._dialog.set_child(outer)
+        self._dialog.set_child(handle)
 
     def present(self) -> None:
         if self._dialog and self._parent:

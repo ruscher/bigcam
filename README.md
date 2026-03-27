@@ -2,7 +2,7 @@
   <img src="usr/share/biglinux/bigcam/icons/bigcam.svg" alt="BigCam" width="128" height="128">
 </p>
 
-<h1 align="center">BigCam 4.4.1</h1>
+<h1 align="center">BigCam 4.4.4</h1>
 
 <p align="center">
   <b>The universal webcam control center for Linux — use any camera, including your smartphone, as a professional webcam. No expensive apps needed.</b>
@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-4.4.1-brightgreen.svg" alt="Version 4.4.1">
+  <img src="https://img.shields.io/badge/Version-4.4.4-brightgreen.svg" alt="Version 4.4.4">
   <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3">
   <img src="https://img.shields.io/badge/Platform-Linux-green.svg" alt="Platform: Linux">
   <img src="https://img.shields.io/badge/GTK-4.0-blue.svg" alt="GTK 4.0">
@@ -72,7 +72,17 @@
 - **Smile Capture removed**: Removed mediapipe-dependent smile detection feature entirely (code, README, translations).
 - **i18n verified**: All UI strings confirmed English and translation-ready across 29 languages.
 
-**Version 4.4.1** (current) is the **phone camera & audio reliability update**:
+**Version 4.4.4** (current) is the **virtual camera & UX refinement update**:
+
+- **Label-aware virtual camera allocation**: `allocate_device()` now verifies device labels match the current name template before reusing a v4l2loopback device. Static devices with mismatched labels are skipped — dynamic devices with the correct name are created instead.
+- **Stale device cleanup**: `cleanup_dynamic_devices()` now also finds and removes orphaned v4l2loopback devices from previous sessions that weren't tracked. Runs at app startup and during name changes.
+- **Device name apply button**: The "Device name" field in Settings now uses `Adw.EntryRow.set_show_apply_button(True)` — changes only apply on Enter or ✓ click, preventing device recreation on every keystroke.
+- **Keyboard shortcut safety**: The `Space` shortcut for photo capture was removed (Ctrl+P remains). All single-key shortcuts (Tab, 1/2/3) now check `_is_editing_text()` and are suppressed when a text field is focused.
+- **Background vcam lifecycle**: Toggling virtual camera (or changing the name template) now stops all background vcam pipelines, cleans up stale devices, then recreates everything with the correct configuration.
+- **Welcome dialog**: 8th feature item ("Advanced Controls"), `Gtk.Grid` layout for aligned columns, `Gtk.WindowHandle` for window dragging.
+- **Duplicate name prevention**: Virtual camera numbering syncs with existing device labels at first allocation, preventing duplicate "BigCam Virtual 1" across static and dynamic devices.
+
+**Version 4.4.1** was the **phone camera & audio reliability update**:
 
 - **Redesigned Photo & Video galleries**: Grid/List view toggle, file metadata display (size, date, duration), selection mode with "Select All" and bulk delete with confirmation dialog, individual item delete with trash icon overlay. List view uses `AdwActionRow` with thumbnail prefix and formatted metadata subtitle.
 - **AirPlay stability fix**: When UxPlay dies unexpectedly (signal loss, crash), the disconnect handler now performs full cleanup — releases v4l2loopback device, resets UI, and emits the disconnect signal to the window. Previously, only the status label changed, leaving the stream engine locked and causing cascading failures on reconnect.
@@ -87,7 +97,27 @@ We are grateful to Rafael and Barnabé for starting this journey.
 
 ---
 
-## What's New in 4.4.1
+## What's New in 4.4.4
+
+### Virtual Camera
+
+- **Label-aware allocation**: Devices are only reused when their card label matches the current name template. Mismatched static devices (from modprobe) are skipped — new dynamic devices are created with the correct name.
+- **Stale device cleanup**: Orphaned v4l2loopback devices from previous sessions are automatically cleaned up at startup and during name changes. No more device accumulation across restarts.
+- **Duplicate name prevention**: Virtual camera numbering syncs with existing device labels before creating new devices, preventing duplicate "BigCam Virtual 1" names.
+- **Background vcam lifecycle**: Toggling or renaming virtual cameras now stops all background pipelines, cleans up devices, and recreates everything with the correct configuration.
+
+### Settings
+
+- **Device name apply button**: Changes to the virtual camera name only apply when pressing Enter or clicking the ✓ button — no more device recreation on every keystroke.
+- **Keyboard shortcut safety**: Removed `Space` as a capture shortcut (Ctrl+P remains). Single-key shortcuts (Tab, 1/2/3) are suppressed when editing text.
+
+### Welcome Dialog
+
+- **8th feature item**: Added "Advanced Controls" (fine-tune exposure, white balance, per-camera profiles).
+- **Grid alignment**: Features use `Gtk.Grid` for consistent row alignment across columns.
+- **Window dragging**: Dialog wrapped in `Gtk.WindowHandle` — drag from any empty area.
+
+### Previous (4.4.1)
 
 ### Phone Camera Notifications
 

@@ -545,9 +545,10 @@ class SettingsPage(Gtk.ScrolledWindow):
         self._vc_name_row.set_text(self._settings.get("vcam-name-template"))
         self._vc_name_row.add_prefix(Gtk.Image.new_from_icon_name("document-edit-symbolic"))
         self._vc_name_row.set_tooltip_text(
-            _("Name template for virtual cameras. Devices will be named '<name> 1', '<name> 2', etc.")
+            _("Name template for virtual cameras. Devices will be named '<name> 1', '<name> 2', etc.\nPress Enter or click ✓ to apply.")
         )
-        self._vc_name_row.connect("changed", self._on_vcam_name_changed)
+        self._vc_name_row.set_show_apply_button(True)
+        self._vc_name_row.connect("apply", self._on_vcam_name_apply)
         vc_group.add(self._vc_name_row)
 
         content.append(vc_group)
@@ -923,11 +924,14 @@ class SettingsPage(Gtk.ScrolledWindow):
         self._settings.set("vcam-max-devices", value)
         VirtualCamera.set_max_devices(value)
 
-    def _on_vcam_name_changed(self, row: Adw.EntryRow) -> None:
-        text = row.get_text().strip()
-        if text:
+    def _on_vcam_name_apply(self, *_args) -> None:
+        text = self._vc_name_row.get_text().strip()
+        if text and text != VirtualCamera.get_name_template():
             self._settings.set("vcam-name-template", text)
             VirtualCamera.set_name_template(text)
+            # Signal the window to restart vcam pipelines with the new name
+            if VirtualCamera.is_enabled():
+                self.emit("virtual-camera-toggled", True)
 
     def set_vc_toggle_active(self, active: bool) -> None:
         self._vc_updating = True

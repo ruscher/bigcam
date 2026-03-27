@@ -673,6 +673,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             self._settings_page.set_vc_toggle_active(True)
         VirtualCamera.set_max_devices(self._settings.get("vcam-max-devices"))
         VirtualCamera.set_name_template(self._settings.get("vcam-name-template"))
+        # Clean stale v4l2loopback devices from previous sessions
+        VirtualCamera.cleanup_dynamic_devices()
 
         self._view_stack.add_titled_with_icon(
             self._settings_page,
@@ -1067,7 +1069,14 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         dialog._dialog.connect("closed", lambda *_: self._immersion.uninhibit())
         dialog.present()
 
+    def _is_editing_text(self) -> bool:
+        """Return True when focus is on a text input (skip global shortcuts)."""
+        focus = self.get_focus()
+        return isinstance(focus, Gtk.Text)
+
     def _set_zoom_level(self, index: int) -> None:
+        if self._is_editing_text():
+            return
         self._zoom_index = index % len(self._zoom_levels)
         level = self._zoom_levels[self._zoom_index]
         label = f"{level:.0f}x" if level == int(level) else f"{level}x"
@@ -1075,6 +1084,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._stream_engine.set_zoom(level)
 
     def _switch_sidebar_tab(self, index: int) -> None:
+        if self._is_editing_text():
+            return
         pages = self._view_stack.get_pages()
         if index < pages.get_n_items():
             page = pages.get_item(index)
@@ -1194,7 +1205,10 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             "toggle-grid": self._on_toggle_grid_action,
             "cycle-timer": self._on_cycle_timer_action,
             "toggle-fullscreen": self._on_toggle_fullscreen_action,
-            "toggle-sidebar": lambda *_a: self._on_sidebar_toggle_clicked(None),
+            "toggle-sidebar": lambda *_a: (
+                self._on_sidebar_toggle_clicked(None)
+                if not self._is_editing_text() else None
+            ),
             "zoom-1x": lambda *_a: self._set_zoom_level(0),
             "zoom-1.5x": lambda *_a: self._set_zoom_level(1),
             "zoom-2x": lambda *_a: self._set_zoom_level(2),
@@ -1216,7 +1230,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         if app is None:
             return
         shortcuts = {
-            "win.capture": ["<Primary>p", "space"],
+            "win.capture": ["<Primary>p"],
             "win.record-toggle": ["<Primary>r"],
             "win.refresh": ["F5", "<Primary>F5"],
             "win.save-profile": ["<Primary>s"],
@@ -1517,11 +1531,21 @@ class BigDigicamWindow(Adw.ApplicationWindow):
     def _on_virtual_camera_toggled(self, _page, _enabled: bool) -> None:
         """Restart stream to add/remove virtual camera loopback output."""
         self._settings.set("virtual-camera-enabled", _enabled)
+        # Stop all background vcam pipelines first
+        self._stream_engine.stop_all_bg_vcams()
         if self._active_camera:
             cam = self._active_camera
             self._active_camera = None  # Clear so same-camera guard doesn't skip
             self._stream_engine.stop(stop_backend=False)
+            # All streams stopped — safe to clean up stale dynamic devices
+            VirtualCamera.cleanup_dynamic_devices()
             self._on_camera_selected(self._camera_selector, cam)
+        else:
+            VirtualCamera.cleanup_dynamic_devices()
+        # Recreate background vcams for all cameras if enabled
+        if _enabled:
+            for cam in self._camera_manager.cameras:
+                self._stream_engine.ensure_bg_vcam(cam)
 
     def _on_show_fps_changed(self, _page, show: bool) -> None:
         self._preview.set_show_fps(show)
@@ -2421,6 +2445,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
     # -- recording -----------------------------------------------------------
 
     def _on_capture_action(self, *_args) -> None:
+        if self._is_editing_text():
+            return
         if self._current_mode == "video":
             self._on_record_toggle()
             return

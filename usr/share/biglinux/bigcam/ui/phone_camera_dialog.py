@@ -103,17 +103,6 @@ class PhoneCameraDialog(Adw.Dialog):
         self._view_switcher.set_policy(Adw.ViewSwitcherPolicy.WIDE)
         header.set_title_widget(self._view_switcher)
 
-        # Info button in header
-        info_btn = Gtk.Button(icon_name="help-about-symbolic")
-        info_btn.add_css_class("flat")
-        info_btn.set_tooltip_text(_("About connection methods"))
-        info_btn.update_property(
-            [Gtk.AccessibleProperty.LABEL],
-            [_("Information about connection methods")],
-        )
-        info_btn.connect("clicked", self._on_info_clicked)
-        header.pack_start(info_btn)
-
         toolbar_view.add_top_bar(header)
 
         # ── ViewStack (tabs) ─────────────────────────────────────────
@@ -327,6 +316,7 @@ class PhoneCameraDialog(Adw.Dialog):
             start_cb=self._on_usb_start,
             stop_cb=self._on_usb_stop,
             ref_prefix="_usb",
+            info_tab="usb",
         ))
 
         # Initial device scan
@@ -530,6 +520,7 @@ class PhoneCameraDialog(Adw.Dialog):
             start_cb=self._on_scrcpy_start,
             stop_cb=self._on_scrcpy_stop,
             ref_prefix="_scrcpy",
+            info_tab="wifi",
         ))
 
         # Trigger initial device refresh
@@ -633,6 +624,7 @@ class PhoneCameraDialog(Adw.Dialog):
             start_cb=self._on_airplay_start,
             stop_cb=self._on_airplay_stop,
             ref_prefix="_airplay",
+            info_tab="airplay",
         ))
 
         clamp.set_child(content)
@@ -744,6 +736,7 @@ class PhoneCameraDialog(Adw.Dialog):
             start_cb=self._on_wifi_start,
             stop_cb=self._on_wifi_stop,
             ref_prefix="_wifi",
+            info_tab="browser",
         ))
 
         clamp.set_child(content)
@@ -761,8 +754,9 @@ class PhoneCameraDialog(Adw.Dialog):
         start_cb: Any,
         stop_cb: Any,
         ref_prefix: str,
+        info_tab: str = "",
     ) -> Gtk.Widget:
-        """Build a centered Start / Stop button pair.
+        """Build a centered Start / Stop button pair with optional Instructions.
 
         Stores refs as self.{ref_prefix}_start_btn / self.{ref_prefix}_stop_btn.
         """
@@ -788,6 +782,16 @@ class PhoneCameraDialog(Adw.Dialog):
         stop_btn.set_visible(False)
         stop_btn.connect("clicked", stop_cb)
         box.append(stop_btn)
+
+        if info_tab:
+            instr_btn = Gtk.Button(label=_("Instructions"))
+            instr_btn.add_css_class("pill")
+            instr_btn.set_size_request(140, -1)
+            instr_btn.connect(
+                "clicked",
+                lambda _btn, tab=info_tab: self._on_info_clicked(tab_override=tab),
+            )
+            box.append(instr_btn)
 
         setattr(self, f"{ref_prefix}_start_btn", start_btn)
         setattr(self, f"{ref_prefix}_stop_btn", stop_btn)
@@ -830,7 +834,7 @@ class PhoneCameraDialog(Adw.Dialog):
     #  INFO DIALOG
     # ══════════════════════════════════════════════════════════════════
 
-    def _on_info_clicked(self, _btn: Gtk.Button) -> None:
+    def _on_info_clicked(self, _btn: Gtk.Button | None = None, tab_override: str = "") -> None:
         dialog = Adw.Dialog()
         dialog.set_title(_("How to connect your phone"))
         dialog.set_content_width(520)
@@ -1041,17 +1045,20 @@ class PhoneCameraDialog(Adw.Dialog):
         toolbar_view.set_content(stack)
         dialog.set_child(toolbar_view)
 
-        # Open the info dialog on the same tab the user is viewing
-        current = self._stack.get_visible_child_name()
-        tab_map = {
-            _TAB_BROWSER: "browser",
-            _TAB_WIFI_ADV: "wifi",
-            _TAB_USB: "usb",
-            _TAB_AIRPLAY: "airplay",
-        }
-        info_tab = tab_map.get(current)
-        if info_tab:
-            stack.set_visible_child_name(info_tab)
+        # Open the info dialog on the requested or current tab
+        if tab_override:
+            stack.set_visible_child_name(tab_override)
+        else:
+            current = self._stack.get_visible_child_name()
+            tab_map = {
+                _TAB_BROWSER: "browser",
+                _TAB_WIFI_ADV: "wifi",
+                _TAB_USB: "usb",
+                _TAB_AIRPLAY: "airplay",
+            }
+            info_tab = tab_map.get(current)
+            if info_tab:
+                stack.set_visible_child_name(info_tab)
 
         dialog.present(self)
 

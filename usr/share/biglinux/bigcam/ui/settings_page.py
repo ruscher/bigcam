@@ -876,17 +876,21 @@ class SettingsPage(Gtk.ScrolledWindow):
     def _refresh_vc_status(self) -> None:
         self._vc_updating = True
 
-        def _query() -> tuple[bool, str | None, bool]:
+        def _query() -> tuple[bool, str | None, bool, str]:
             available = VirtualCamera.is_available()
             device = VirtualCamera.find_loopback_device() if available else None
             enabled = VirtualCamera.is_enabled() if available else False
-            return available, device, enabled
+            kstatus = VirtualCamera.kernel_status() if not available else "ready"
+            return available, device, enabled, kstatus
 
-        def _update(result: tuple[bool, str | None, bool]) -> None:
-            available, device, enabled = result
+        def _update(result: tuple[bool, str | None, bool, str]) -> None:
+            available, device, enabled, kstatus = result
             try:
                 if not available:
-                    self._vc_status_row.set_subtitle(_("v4l2loopback not available"))
+                    if kstatus == "kernel_mismatch":
+                        self._vc_status_row.set_subtitle(_("Reboot required (kernel updated)"))
+                    else:
+                        self._vc_status_row.set_subtitle(_("v4l2loopback not available"))
                     self._vc_status_icon.set_from_icon_name("dialog-warning-symbolic")
                     self._vc_toggle_row.set_sensitive(False)
                     return

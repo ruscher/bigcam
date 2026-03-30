@@ -86,6 +86,13 @@ class VirtualCamera:
     def is_available() -> bool:
         return os.path.exists("/usr/lib/modules") and _has_v4l2loopback()
 
+    @staticmethod
+    def kernel_status() -> str:
+        """Return 'ready', 'kernel_mismatch', or 'not_installed'."""
+        if not os.path.exists("/usr/lib/modules"):
+            return "not_installed"
+        return _v4l2loopback_kernel_status()
+
     @classmethod
     def _is_dynamic_supported(cls) -> bool:
         """Check if v4l2loopback-ctl is available for dynamic device management."""
@@ -484,6 +491,37 @@ def _has_v4l2loopback() -> bool:
         return result.returncode == 0
     except FileNotFoundError:
         return False
+
+
+def _v4l2loopback_pkg_installed() -> bool:
+    """Check if v4l2loopback DKMS package is installed (even if not built for current kernel)."""
+    for pkg in ("v4l2loopback-dkms", "v4l2loopback"):
+        try:
+            result = subprocess.run(
+                ["pacman", "-Q", pkg],
+                capture_output=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                return True
+        except FileNotFoundError:
+            pass
+    return False
+
+
+def _v4l2loopback_kernel_status() -> str:
+    """Return the status of v4l2loopback for the current kernel.
+
+    Returns one of:
+        "ready"            – modinfo finds the module (can be loaded)
+        "kernel_mismatch"  – package installed but module not built for running kernel
+        "not_installed"    – package not found at all
+    """
+    if _has_v4l2loopback():
+        return "ready"
+    if _v4l2loopback_pkg_installed():
+        return "kernel_mismatch"
+    return "not_installed"
 
 
 def _has_exclusive_caps() -> bool:

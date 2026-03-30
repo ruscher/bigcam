@@ -29,6 +29,8 @@ class GPhoto2Backend(CameraBackend):
     # port -> {"udp_port": str, "launch_port": str}
     _active_streams: dict[str, dict[str, str]] = {}
     _streams_lock = threading.Lock()
+    _streaming_active: bool = False
+    _last_detected: list[CameraInfo] = []
 
     def get_backend_type(self) -> BackendType:
         return BackendType.GPHOTO2
@@ -192,10 +194,64 @@ class GPhoto2Backend(CameraBackend):
         except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
             return False
 
-    # -- detection -----------------------------------------------------------
+    @staticmethod
+    def _check_capture_support(port: str) -> bool:
+        """Return True if the camera at *port* supports capture operations."""
+        env = {**os.environ, "LANG": "C", "LC_ALL": "C"}
+        # Try without --port first (doesn't need device access, works even
+        # when GVFS still holds the device), then fall back to --port.
+        for cmd in (
+            ["gphoto2", "--abilities"],
+            ["gphoto2", "--port", port, "--abilities"],
+        ):
+            try:
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=15, env=env,
+                )
+                if result.returncode != 0:
+                    continue
+                out = result.stdout.lower()
+                if "not supported" in out:
+                    return False
+                return True
+            except Exception:
+                continue
+        return True  # assume supported if all checks fail
 
-    _streaming_active = False
-    _last_detected: list[CameraInfo] = []
+    @staticmethod
+    def _has_remote_control(port: str) -> bool:
+        """Return True if the camera exposes capture/image settings via PTP.
+
+        Cameras in basic MTP/PTP mode (file-transfer only) expose only
+        status entries.  Remote-controllable cameras also expose
+        capturesettings and/or imgsettings.
+        """
+        env = {**os.environ, "LANG": "C", "LC_ALL": "C"}
+        try:
+            result = subprocess.run(
+                ["gphoto2", "--port", port, "--list-config"],
+                capture_output=True, text=True, timeout=15, env=env,
+            )
+            if result.returncode != 0:
+                return True  # assume OK if we can't check
+            lines = result.stdout.strip().splitlines()
+            # A camera with real remote control has capturesettings or imgsettings
+            for line in lines:
+                if "/capturesettings/" in line or "/imgsettings/" in line:
+                    return True
+            # Very few config entries = basic PTP, no remote control
+            if len(lines) <= 15:
+                log.info(
+                    "Camera at %s has only %d config entries and no "
+                    "capturesettings — likely MTP/basic PTP only",
+                    port, len(lines),
+                )
+                return False
+            return True
+        except Exception:
+            return True  # assume OK on error
+
+    # -- detection -----------------------------------------------------------
 
     def detect_cameras(self) -> list[CameraInfo]:
         cameras: list[CameraInfo] = []
@@ -670,9 +726,33 @@ class GPhoto2Backend(CameraBackend):
 
     def start_streaming(self, camera: CameraInfo) -> bool:
         """Launch the gphoto2 streaming script (persistent session per camera)."""
-        self._streaming_active = True
         # Refresh USB port (device number may change after GVFS kill)
         port = self._refresh_port(camera)
+
+        # Release GVFS early so the abilities check can access the device
+        self._kill_gvfs()
+
+        # Fast check: does this camera actually support capture?
+        if not self._check_capture_support(port):
+            log.warning(
+                "Camera %s does not support capture (PTP driver limitation)",
+                camera.name,
+            )
+            camera.extra["capture_unsupported"] = True
+            return False
+
+        # Quick check: does the camera expose remote-control PTP settings?
+        # Cameras in MTP/basic-PTP mode lack capturesettings/imgsettings.
+        if not self._has_remote_control(port):
+            log.warning(
+                "Camera %s has no remote-control settings — likely in MTP "
+                "mode (needs PC Remote or HDMI capture).",
+                camera.name,
+            )
+            camera.extra["ptp_streaming_error"] = True
+            return False
+
+        self._streaming_active = True
         udp_port = str(camera.extra.get("udp_port", 5000))
 
         # If this camera is already streaming, just return success
@@ -681,8 +761,7 @@ class GPhoto2Backend(CameraBackend):
                 log.debug(f"Camera {camera.name} already streaming on port {port}")
                 return True
 
-        # Kill GVFS and release USB device before streaming
-        self._kill_gvfs()
+        # Release USB device before streaming (GVFS already killed above)
         self._release_usb_device(port)
 
         script = os.path.join(BASE_DIR, "script", "run_webcam_gphoto2.sh")
@@ -745,6 +824,19 @@ class GPhoto2Backend(CameraBackend):
                 return True
 
             log.error("GPhoto2 script failed (code %d): %s", res.returncode, output)
+            # Detect PTP-level failures (camera doesn't really support streaming)
+            out_lower = output.lower()
+            if any(kw in out_lower for kw in (
+                "ptp general error", "ptp error", "ptp timeout",
+                "0 quadros", "0 frames",
+                "not valid", "não é válido",
+            )):
+                log.warning(
+                    "Camera %s failed with PTP errors — likely lacks "
+                    "PC Remote mode for live streaming",
+                    camera.name,
+                )
+                camera.extra["ptp_streaming_error"] = True
             self._streaming_active = False
             return False
         except Exception as exc:

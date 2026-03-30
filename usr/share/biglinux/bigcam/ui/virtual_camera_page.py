@@ -126,9 +126,15 @@ class VirtualCameraPage(Gtk.Box):
         self._updating_ui = True
         try:
             if not VirtualCamera.is_available():
-                self._status_expander.set_subtitle(_("v4l2loopback not available"))
-                self._set_dot_color(0.85, 0.2, 0.2)  # red
-                self._module_row.set_subtitle(_("Not installed"))
+                status = VirtualCamera.kernel_status()
+                if status == "kernel_mismatch":
+                    self._status_expander.set_subtitle(_("Module not available for current kernel"))
+                    self._set_dot_color(0.85, 0.65, 0.1)  # yellow/warning
+                    self._module_row.set_subtitle(_("Reboot required (kernel updated)"))
+                else:
+                    self._status_expander.set_subtitle(_("v4l2loopback not available"))
+                    self._set_dot_color(0.85, 0.2, 0.2)  # red
+                    self._module_row.set_subtitle(_("Not installed"))
                 self._device_row.set_subtitle(_("—"))
                 self._toggle_row.set_sensitive(False)
                 return

@@ -1472,6 +1472,34 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                     self._controls_page.set_camera_with_controls(camera, controls)
                     self._stream_engine.play(camera, streaming_ready=True)
                     self._show_vcam_dialog(camera)
+                elif camera.extra.get("capture_unsupported"):
+                    self._preview.show_status(
+                        _("Capture not supported"),
+                        _(
+                            "This camera does not support live streaming via USB. "
+                            "Its PTP driver only allows file transfer. "
+                            "Use an HDMI capture card to stream from this camera."
+                        ),
+                        icon="dialog-warning-symbolic",
+                    )
+                    self._show_notification(
+                        _("Camera does not support USB streaming."), "error", 8000
+                    )
+                elif camera.extra.get("ptp_streaming_error"):
+                    self._preview.show_status(
+                        _("Streaming failed"),
+                        _(
+                            "The camera returned PTP errors during video capture. "
+                            "It may lack PC Remote mode or its USB connection mode "
+                            "needs to be changed. Check the camera menu for USB "
+                            "settings and select 'PC Remote' if available.\n\n"
+                            "Alternatively, use an HDMI capture card."
+                        ),
+                        icon="dialog-warning-symbolic",
+                    )
+                    self._show_notification(
+                        _("Camera PTP streaming failed."), "error", 8000
+                    )
                 else:
                     self._show_notification(
                         _("Failed to start camera streaming."), "error"

@@ -279,6 +279,8 @@ class StreamEngine(GObject.Object):
         # Most-recent frame queued while the vcam pipeline is being built.
         # Tuple of (bgra_bytes, w, h) or None.
         self._vcam_pending_frame: tuple | None = None
+        # Deferred vcam setup: resolve after first frame is rendered on screen
+        self._vcam_resolve_pending: bool = False
         # Latest frame for async vcam push (set by probe, consumed by idle)
         self._vcam_latest_frame: tuple | None = None
         self._vcam_idle_scheduled: bool = False
@@ -469,6 +471,11 @@ class StreamEngine(GObject.Object):
     ) -> Gst.PadProbeReturn:
         """Buffer probe on tee sink — applies OpenCV effects via buffer replacement."""
         self._frame_count += 1
+
+        # Deferred vcam: resolve after first frame is on screen
+        if self._vcam_resolve_pending:
+            self._vcam_resolve_pending = False
+            self._resolve_vcam_async()
 
         has_work = self._has_processing_work()
         is_recording = self._video_recorder and self._video_recorder.is_recording
@@ -789,8 +796,8 @@ class StreamEngine(GObject.Object):
             # Disable USB autosuspend to prevent frame drops
             if self._current_camera and self._current_camera.device_path:
                 self._disable_usb_autosuspend(self._current_camera.device_path)
-            # Resolve vcam device in background to avoid blocking the UI
-            self._resolve_vcam_async()
+            # Defer vcam setup until the first frame renders on screen
+            self._vcam_resolve_pending = True
             return True
 
         # PipeWire source may fail on some format/fps combinations.
@@ -812,7 +819,7 @@ class StreamEngine(GObject.Object):
                     self._apply_anti_flicker_async()
                     if camera.device_path:
                         self._disable_usb_autosuspend(camera.device_path)
-                    self._resolve_vcam_async()
+                    self._vcam_resolve_pending = True
                     return True
 
         # All pipelines failed — check if device is busy (in background)
@@ -957,7 +964,7 @@ class StreamEngine(GObject.Object):
         self._apply_anti_flicker_async()
         if camera.device_path:
             self._disable_usb_autosuspend(camera.device_path)
-        self._resolve_vcam_async()
+        self._vcam_resolve_pending = True
         self.emit("state-changed", "playing")
         log.info("Direct OpenCV V4L2 preview started (no GStreamer)")
         return True
@@ -992,6 +999,12 @@ class StreamEngine(GObject.Object):
 
         self._cv_rendered_seq = self._cv_frame_seq
         self._frame_count += 1
+
+        # Deferred vcam: resolve after first frame is rendered
+        if self._vcam_resolve_pending:
+            self._vcam_resolve_pending = False
+            self._resolve_vcam_async()
+
         h, w = frame.shape[:2]
         bgr = frame.copy()  # copy to avoid race with capture thread
 
@@ -1217,6 +1230,7 @@ class StreamEngine(GObject.Object):
         self._last_texture = None
         self._vcam_latest_frame = None
         self._vcam_pending_frame = None
+        self._vcam_resolve_pending = False
         self._vcam_bgra_buf = None
         self._probe_cached_fmt = ""
         # Remove buffer probe before pipeline teardown

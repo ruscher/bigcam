@@ -264,7 +264,7 @@ class GPhoto2Backend(CameraBackend):
                     capture_output=True,
                     timeout=5,
                 )
-                time.sleep(1)
+                time.sleep(0.3)
 
             # Retry up to 2 times in case GVFS hasn't released the device yet
             max_attempts = 1 if self._streaming_active else 2
@@ -300,7 +300,7 @@ class GPhoto2Backend(CameraBackend):
                 if cameras:
                     break
                 if not self._streaming_active:
-                    time.sleep(1)
+                    time.sleep(0.3)
         except Exception:
             pass
         if cameras:

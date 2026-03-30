@@ -74,6 +74,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._tooltip_widgets: list[tuple[Gtk.Widget, str]] = []
         self._active_camera: CameraInfo | None = None
         self._known_camera_ids: set[str] = set()
+        self._known_camera_names: set[str] = set()
         self._streaming_lock = threading.Lock()
         self._phone_server = PhoneCameraServer()
         self._phone_server.connect("connected", self._on_phone_connected)
@@ -2620,9 +2621,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         for cam in self._camera_manager.cameras:
             self._stream_engine.ensure_bg_vcam(cam)
 
-        # Show toast for newly connected cameras
+        # Show toast for newly connected cameras (deduplicate by name)
         for cam in self._camera_manager.cameras:
-            if cam.id not in self._known_camera_ids:
+            if cam.id not in self._known_camera_ids and cam.name not in self._known_camera_names:
                 toast = Adw.Toast.new(f"📷  {cam.name}")
                 toast.set_timeout(4)
                 toast.set_button_label(_("Show"))
@@ -2633,6 +2634,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                 self._toast_overlay.add_toast(toast)
 
         self._known_camera_ids = current_ids
+        self._known_camera_names = {c.name for c in self._camera_manager.cameras}
 
         if self._active_camera is None and self._camera_manager.cameras:
             last_id = self._settings.get("last-camera-id")
@@ -2700,19 +2702,40 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             self._camera_manager.start_hotplug()
 
     def _on_close(self, _window: Adw.ApplicationWindow) -> bool:
-        has_active_stream = (
-            self._stream_engine.is_playing()
-            or self._stream_engine.has_active_bg_vcams()
-        )
-        if has_active_stream:
-            # Build description with active camera name and virtual cam status
-            cam_name = ""
-            if self._active_camera:
-                cam_name = self._active_camera.name
+        # Gather ALL active camera sources
+        active_names: list[str] = []
 
+        # Main camera (playing)
+        if self._stream_engine.is_playing() and self._active_camera:
+            active_names.append(self._active_camera.name)
+
+        # Background virtual cameras (cameras kept on after switching)
+        for cam in self._camera_manager.cameras:
+            if cam.id in self._stream_engine._bg_vcam_pipelines or cam.id in self._stream_engine._bg_vcam_feeders:
+                if cam.name not in active_names:
+                    active_names.append(cam.name)
+
+        # Phone camera services
+        if self._phone_server and self._phone_server.running:
+            label = _("Phone (Browser Wi-Fi)")
+            if label not in active_names:
+                active_names.append(label)
+        if self._scrcpy_camera and self._scrcpy_camera.running:
+            label = _("Phone (USB/Wi-Fi scrcpy)")
+            if label not in active_names:
+                active_names.append(label)
+        if self._airplay_receiver and self._airplay_receiver.running:
+            label = _("Phone (AirPlay)")
+            if label not in active_names:
+                active_names.append(label)
+
+        has_active = bool(active_names) or self._stream_engine.has_active_bg_vcams()
+
+        if has_active:
             parts = []
-            if cam_name:
-                parts.append(_("Active camera: %s") % cam_name)
+            if active_names:
+                cam_list = "\n".join(f"  • {n}" for n in active_names)
+                parts.append(_("Active cameras:") + "\n" + cam_list)
             if VirtualCamera.is_enabled():
                 parts.append(_("Virtual Camera is enabled (other apps may depend on it)."))
             parts.append(

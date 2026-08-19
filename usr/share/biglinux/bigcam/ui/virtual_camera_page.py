@@ -128,7 +128,9 @@ class VirtualCameraPage(Gtk.Box):
             if not VirtualCamera.is_available():
                 status = VirtualCamera.kernel_status()
                 if status == "kernel_mismatch":
-                    self._status_expander.set_subtitle(_("Module not available for current kernel"))
+                    self._status_expander.set_subtitle(
+                        _("Module not available for current kernel")
+                    )
                     self._set_dot_color(0.85, 0.65, 0.1)  # yellow/warning
                     self._module_row.set_subtitle(_("Reboot required (kernel updated)"))
                 else:

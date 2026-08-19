@@ -43,9 +43,7 @@ class WelcomeDialog:
 
         title = Gtk.Label()
         title.set_markup(
-            "<span size='xx-large' weight='bold'>"
-            + _("Welcome to BigCam")
-            + "</span>"
+            "<span size='xx-large' weight='bold'>" + _("Welcome to BigCam") + "</span>"
         )
         header.append(title)
 
@@ -82,7 +80,9 @@ class WelcomeDialog:
             (
                 "applications-graphics-symbolic",
                 _("Real-Time Effects"),
-                _("Apply brightness, contrast, blur,\nsepia, vignette and more effects live"),
+                _(
+                    "Apply brightness, contrast, blur,\nsepia, vignette and more effects live"
+                ),
                 "camera-web-symbolic",
                 _("Virtual Camera"),
                 _("Create a virtual camera device\nfor use in video calls"),
@@ -178,7 +178,9 @@ class WelcomeDialog:
         if self._dialog and self._parent:
             self._dialog.present(self._parent)
 
-    def _create_feature_box(self, icon_name: str, title: str, description: str) -> Gtk.Box:
+    def _create_feature_box(
+        self, icon_name: str, title: str, description: str
+    ) -> Gtk.Box:
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
 
         icon = Gtk.Image.new_from_icon_name(icon_name)

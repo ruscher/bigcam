@@ -98,14 +98,20 @@ class AirPlayReceiver(GObject.Object):
         resolution = f"{max_size * 16 // 9}x{max_size}" if max_size else "1920x1080"
 
         cmd: list[str] = [
-            "stdbuf", "-oL",
+            "stdbuf",
+            "-oL",
             _UXPLAY_BIN,
-            "-n", server_name,
+            "-n",
+            server_name,
             "-nh",
-            "-vs", f"v4l2sink device={v4l2_device}",
-            "-s", resolution,
-            "-fps", str(fps),
-            "-vsync", "no",
+            "-vs",
+            f"v4l2sink device={v4l2_device}",
+            "-s",
+            resolution,
+            "-fps",
+            str(fps),
+            "-vsync",
+            "no",
         ]
 
         if rotation in ("R", "L"):
@@ -176,9 +182,7 @@ class AirPlayReceiver(GObject.Object):
             # Detect connection: "raop_rtp_mirror starting mirroring"
             if "starting mirroring" in line.lower() and not connected:
                 connected = True
-                GLib.idle_add(
-                    self.emit, "status-changed", "AirPlay client connected"
-                )
+                GLib.idle_add(self.emit, "status-changed", "AirPlay client connected")
                 GLib.idle_add(self.emit, "connected", width or 1920, height or 1080)
 
             # Detect resolution from "raop_rtp_mirror ... WxH" patterns
@@ -188,13 +192,14 @@ class AirPlayReceiver(GObject.Object):
                 height = int(res_match.group(2))
 
             # Detect disconnection
-            if "client disconnected" in line.lower() or "connection closed" in line.lower():
+            if (
+                "client disconnected" in line.lower()
+                or "connection closed" in line.lower()
+            ):
                 if connected:
                     connected = False
                     GLib.idle_add(self.emit, "disconnected")
-                    GLib.idle_add(
-                        self.emit, "status-changed", "Client disconnected"
-                    )
+                    GLib.idle_add(self.emit, "status-changed", "Client disconnected")
 
             # Log errors/warnings
             if "error" in line.lower():

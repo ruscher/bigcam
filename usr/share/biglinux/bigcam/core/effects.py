@@ -111,7 +111,9 @@ def _apply_clahe(frame: np.ndarray, params: dict[str, float]) -> np.ndarray:
         if key not in _clahe_cache:
             if len(_clahe_cache) >= 8:
                 _clahe_cache.pop(next(iter(_clahe_cache)))
-            _clahe_cache[key] = cv2.createCLAHE(clipLimit=clip, tileGridSize=(grid, grid))
+            _clahe_cache[key] = cv2.createCLAHE(
+                clipLimit=clip, tileGridSize=(grid, grid)
+            )
         clahe = _clahe_cache[key]
     lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
     lab[:, :, 0] = clahe.apply(lab[:, :, 0])
@@ -220,7 +222,6 @@ def _apply_vignette(frame: np.ndarray, params: dict[str, float]) -> np.ndarray:
         mask = _vignette_cache[key]
     mask3 = cv2.merge([mask, mask, mask])
     return cv2.multiply(frame, mask3, dtype=cv2.CV_8U)
-
 
 
 def release_segmenter() -> None:
@@ -379,7 +380,6 @@ def _register_effects() -> None:
             _apply_vignette,
         ),
         # ── Advanced ──
-
     ]
 
 

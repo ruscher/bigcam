@@ -60,6 +60,14 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._stream_engine = StreamEngine(self._camera_manager)
         self._stream_engine.mirror = bool(self._settings.get("mirror_preview"))
         self._stream_engine.prefer_v4l2 = bool(self._settings.get("prefer-v4l2"))
+        # Stabilization defaults
+        stab_enabled = bool(self._settings.get("stabilization-enabled"))
+        stab_smooth = int(self._settings.get("stabilization-smoothing") or 8)
+        try:
+            self._stream_engine.enable_stabilization(stab_enabled)
+            self._stream_engine.set_stabilization_smoothing(stab_smooth)
+        except Exception:
+            pass
         self._photo_capture = PhotoCapture(self._camera_manager)
         self._video_recorder = VideoRecorder(self._camera_manager)
         self._video_recorder.configure(
@@ -88,7 +96,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._apply_theme()
         self._setup_immersion()
 
-        self._mobile_device_ctrl = MobileDeviceController(self._camera_manager, self._immersion, self._audio_monitor)
+        self._mobile_device_ctrl = MobileDeviceController(
+            self._camera_manager, self._immersion, self._audio_monitor
+        )
         event_bus.connect("mobile-status-changed", self._on_mobile_status_changed)
         event_bus.connect("camera-changed", self._on_eventbus_camera_changed)
         event_bus.connect("vcam-limit-reached", self._on_vcam_limit_reached)
@@ -198,7 +208,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._preview.set_audio_monitor(self._audio_monitor)
         self._audio_monitor.detect_all()
         self._audio_monitor.connect("source-toggled", self._on_audio_source_toggled)
-        self._audio_monitor.connect("source-volume-changed", self._on_audio_source_volume_changed)
+        self._audio_monitor.connect(
+            "source-volume-changed", self._on_audio_source_volume_changed
+        )
         self._audio_monitor.connect("mute-changed", self._on_audio_mute_changed)
 
         # Hide PreviewArea's built-in floating toolbar (replaced by our bottom bar)
@@ -314,9 +326,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         top_menu_btn = Gtk.MenuButton()
         top_menu_btn.set_icon_name("open-menu-symbolic")
         self._register_tooltip(top_menu_btn, _("Menu"))
-        top_menu_btn.update_property(
-            [Gtk.AccessibleProperty.LABEL], [_("Main menu")]
-        )
+        top_menu_btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Main menu")])
         top_menu_btn.add_css_class("flat")
         top_menu_btn.add_css_class("circular")
         top_menu_btn.set_menu_model(self._build_menu())
@@ -360,18 +370,14 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         photo_btn.set_icon_name("camera-photo-symbolic")
         photo_btn.set_active(True)
         self._register_tooltip(photo_btn, _("Photo mode"))
-        photo_btn.update_property(
-            [Gtk.AccessibleProperty.LABEL], [_("Photo mode")]
-        )
+        photo_btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Photo mode")])
         self._mode_photo_btn = photo_btn
 
         video_btn = Gtk.ToggleButton()
         video_btn.set_icon_name("emblem-videos-symbolic")
         video_btn.set_group(photo_btn)
         self._register_tooltip(video_btn, _("Video mode"))
-        video_btn.update_property(
-            [Gtk.AccessibleProperty.LABEL], [_("Video mode")]
-        )
+        video_btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Video mode")])
         self._mode_video_btn = video_btn
 
         photo_btn.connect("toggled", self._on_mode_toggled, "photo")
@@ -416,7 +422,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         mirror_btn.set_halign(Gtk.Align.CENTER)
         mirror_btn.set_valign(Gtk.Align.CENTER)
         mirror_btn.set_active(bool(self._settings.get("mirror_preview")))
-        self._mirror_btn_handler_id = mirror_btn.connect("toggled", self._on_mirror_btn_toggled)
+        self._mirror_btn_handler_id = mirror_btn.connect(
+            "toggled", self._on_mirror_btn_toggled
+        )
         self._mirror_btn = mirror_btn
         controls_start.append(mirror_btn)
 
@@ -457,7 +465,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         vcam_btn.set_halign(Gtk.Align.CENTER)
         vcam_btn.set_valign(Gtk.Align.CENTER)
         vcam_btn.set_active(bool(self._settings.get("virtual-camera-enabled")))
-        self._vcam_btn_handler_id = vcam_btn.connect("toggled", self._on_vcam_quick_toggled)
+        self._vcam_btn_handler_id = vcam_btn.connect(
+            "toggled", self._on_vcam_quick_toggled
+        )
         self._vcam_quick_btn = vcam_btn
         controls_start.append(vcam_btn)
 
@@ -498,9 +508,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         record_btn.set_halign(Gtk.Align.CENTER)
         record_btn.set_valign(Gtk.Align.CENTER)
         self._register_tooltip(record_btn, _("Record video (Ctrl+R)"))
-        record_btn.update_property(
-            [Gtk.AccessibleProperty.LABEL], [_("Record video")]
-        )
+        record_btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Record video")])
         record_btn.set_action_name("win.record-toggle")
         record_btn.set_visible(False)  # Hidden in photo mode
         self._bottom_record_btn = record_btn
@@ -578,7 +586,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         fullscreen_btn.set_size_request(44, 44)
         fullscreen_btn.set_halign(Gtk.Align.CENTER)
         fullscreen_btn.set_valign(Gtk.Align.CENTER)
-        fullscreen_btn.connect("clicked", lambda _b: self._on_toggle_fullscreen_action())
+        fullscreen_btn.connect(
+            "clicked", lambda _b: self._on_toggle_fullscreen_action()
+        )
         controls_end.append(fullscreen_btn)
 
         controls_bar.set_end_widget(controls_end)
@@ -597,9 +607,10 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
         self._split_view.set_content(self._main_overlay)
 
-
         # Controls page
-        self._controls_page = CameraControlsPage(self._camera_manager, self._stream_engine)
+        self._controls_page = CameraControlsPage(
+            self._camera_manager, self._stream_engine
+        )
 
         # Effects page
         self._effects_page = EffectsPage(self._stream_engine.effects)
@@ -611,7 +622,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._video_gallery = VideoGallery()
 
         # Settings page (includes Tools and Virtual Camera)
-        self._settings_page = SettingsPage(self._settings, self._stream_engine, self._camera_manager)
+        self._settings_page = SettingsPage(
+            self._settings, self._stream_engine, self._camera_manager
+        )
         self._settings_page.connect("qr-detected", self._on_qr_detected)
         self._settings_page.connect(
             "virtual-camera-toggled", self._on_virtual_camera_toggled
@@ -702,7 +715,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         else:
             path = self._get_last_photo_path()
         if path:
-            Gtk.FileLauncher.new(Gio.File.new_for_path(path)).launch(self, None, None, None)
+            Gtk.FileLauncher.new(Gio.File.new_for_path(path)).launch(
+                self, None, None, None
+            )
 
     def _update_last_media_thumbnail(self, specific_path: str | None = None) -> bool:
         """Refresh the circular thumbnail based on current mode.
@@ -736,10 +751,21 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
                     def _gen_thumb() -> str | None:
                         subprocess.run(
-                            ["ffmpeg", "-y", "-i", path, "-ss", "00:00:00",
-                             "-vframes", "1", "-vf", "scale=40:40:force_original_aspect_ratio=increase,crop=40:40",
-                             thumb_path],
-                            capture_output=True, timeout=5,
+                            [
+                                "ffmpeg",
+                                "-y",
+                                "-i",
+                                path,
+                                "-ss",
+                                "00:00:00",
+                                "-vframes",
+                                "1",
+                                "-vf",
+                                "scale=40:40:force_original_aspect_ratio=increase,crop=40:40",
+                                thumb_path,
+                            ],
+                            capture_output=True,
+                            timeout=5,
                         )
                         return thumb_path if os.path.exists(thumb_path) else None
 
@@ -751,6 +777,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             else:
                 try:
                     from gi.repository import GdkPixbuf
+
                     pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 40, 40, True)
                     texture = Gdk.Texture.new_for_pixbuf(pixbuf)
                     image = Gtk.Image.new_from_paintable(texture)
@@ -766,6 +793,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
     def _set_video_thumbnail(self, thumb_path: str) -> None:
         try:
             from gi.repository import GdkPixbuf
+
             pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(thumb_path, 40, 40, True)
             texture = Gdk.Texture.new_for_pixbuf(pixbuf)
             image = Gtk.Image.new_from_paintable(texture)
@@ -785,6 +813,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
     def _get_last_photo_path(self) -> str | None:
         """Return the path of the most recently captured photo, or None."""
         from utils import xdg
+
         photos_dir = xdg.photos_dir()
         if not os.path.isdir(photos_dir):
             return None
@@ -802,6 +831,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
     def _get_last_video_path(self) -> str | None:
         """Return the path of the most recently recorded video, or None."""
         from utils import xdg
+
         vids_dir = xdg.videos_dir()
         if not os.path.isdir(vids_dir):
             return None
@@ -816,13 +846,17 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         entries.sort(key=lambda e: e.stat().st_mtime, reverse=True)
         return entries[0].path
 
-    def _on_sidebar_drag(self, gesture: Gtk.GestureDrag, offset_x: float, _offset_y: float) -> None:
+    def _on_sidebar_drag(
+        self, gesture: Gtk.GestureDrag, offset_x: float, _offset_y: float
+    ) -> None:
         """Resize the sidebar by dragging the handle."""
         current_width = self._split_view.get_max_sidebar_width()
         new_width = max(280, min(500, current_width + offset_x))
         self._split_view.set_max_sidebar_width(new_width)
 
-    def _on_sidebar_toggled(self, split_view: Adw.OverlaySplitView, _pspec: object) -> None:
+    def _on_sidebar_toggled(
+        self, split_view: Adw.OverlaySplitView, _pspec: object
+    ) -> None:
         if split_view.get_show_sidebar():
             self._immersion.inhibit()
         else:
@@ -859,7 +893,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
     def _on_vcam_quick_toggled(self, btn: Gtk.ToggleButton) -> None:
         self._settings_page._vc_toggle_row.handler_block(self._vcam_settings_handler_id)
         self._settings_page._vc_toggle_row.set_active(btn.get_active())
-        self._settings_page._vc_toggle_row.handler_unblock(self._vcam_settings_handler_id)
+        self._settings_page._vc_toggle_row.handler_unblock(
+            self._vcam_settings_handler_id
+        )
 
     def _on_settings_qr_changed(self, row: object, _pspec: object) -> None:
         self._qr_quick_btn.handler_block(self._qr_btn_handler_id)
@@ -876,10 +912,12 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         if not self._settings.get("virtual-camera-enabled"):
             self._vcam_badge.set_visible(False)
             return
-            
+
         disabled_list = self._settings.get("vcam-disabled-cameras", [])
-        active_count = sum(1 for c in self._camera_manager.cameras if c.id not in disabled_list)
-                
+        active_count = sum(
+            1 for c in self._camera_manager.cameras if c.id not in disabled_list
+        )
+
         if active_count > 0:
             self._vcam_badge.set_label(str(active_count))
             self._vcam_badge.set_visible(True)
@@ -938,29 +976,50 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         on_top = btn.get_active()
 
         def _apply_always_on_top() -> None:
-            script = f'workspace.activeWindow.keepAbove = {"true" if on_top else "false"};'
-            runtime_dir = os.environ.get('XDG_RUNTIME_DIR', '/tmp')
-            script_path = os.path.join(runtime_dir, 'kwin_bigcam_above.js')
-            plugin_name = 'bigcam_above'
+            script = (
+                f'workspace.activeWindow.keepAbove = {"true" if on_top else "false"};'
+            )
+            runtime_dir = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
+            script_path = os.path.join(runtime_dir, "kwin_bigcam_above.js")
+            plugin_name = "bigcam_above"
             try:
-                with open(script_path, 'w') as f:
+                with open(script_path, "w") as f:
                     f.write(script)
                 result = subprocess.run(
-                    ['qdbus', 'org.kde.KWin', '/Scripting',
-                     'org.kde.kwin.Scripting.loadScript', script_path, plugin_name],
-                    capture_output=True, text=True, timeout=5,
+                    [
+                        "qdbus",
+                        "org.kde.KWin",
+                        "/Scripting",
+                        "org.kde.kwin.Scripting.loadScript",
+                        script_path,
+                        plugin_name,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
                 script_id = result.stdout.strip()
                 if script_id.isdigit():
                     subprocess.run(
-                        ['qdbus', 'org.kde.KWin', f'/Scripting/Script{script_id}',
-                         'org.kde.kwin.Script.run'],
-                        capture_output=True, timeout=5,
+                        [
+                            "qdbus",
+                            "org.kde.KWin",
+                            f"/Scripting/Script{script_id}",
+                            "org.kde.kwin.Script.run",
+                        ],
+                        capture_output=True,
+                        timeout=5,
                     )
                 subprocess.run(
-                    ['qdbus', 'org.kde.KWin', '/Scripting',
-                     'org.kde.kwin.Scripting.unloadScript', plugin_name],
-                    capture_output=True, timeout=5,
+                    [
+                        "qdbus",
+                        "org.kde.KWin",
+                        "/Scripting",
+                        "org.kde.kwin.Scripting.unloadScript",
+                        plugin_name,
+                    ],
+                    capture_output=True,
+                    timeout=5,
                 )
             except (FileNotFoundError, OSError):
                 pass
@@ -974,6 +1033,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
     def _on_show_welcome_action(self, *_args) -> None:
         from ui.welcome_dialog import WelcomeDialog
+
         dialog = WelcomeDialog(self, self._settings)
         self._immersion.inhibit()
         dialog._dialog.connect("closed", lambda *_: self._immersion.uninhibit())
@@ -1032,7 +1092,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._flash_overlay.set_opacity(0.8)
         GLib.timeout_add(100, self._flash_fade_out)
 
-    def _show_notification(self, message: str, _level: str = "info", timeout_ms: int = 3000, **_kwargs) -> None:
+    def _show_notification(
+        self, message: str, _level: str = "info", timeout_ms: int = 3000, **_kwargs
+    ) -> None:
         """Show a window-level banner that pushes content down."""
         if self._window_banner_timeout is not None:
             GLib.source_remove(self._window_banner_timeout)
@@ -1117,7 +1179,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             "toggle-fullscreen": self._on_toggle_fullscreen_action,
             "toggle-sidebar": lambda *_a: (
                 self._on_sidebar_toggle_clicked(None)
-                if not self._is_editing_text() else None
+                if not self._is_editing_text()
+                else None
             ),
             "zoom-1x": lambda *_a: self._set_zoom_level(0),
             "zoom-1.5x": lambda *_a: self._set_zoom_level(1),
@@ -1177,14 +1240,28 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         )
         self._stream_engine.connect("device-busy", self._on_device_busy)
         self._settings_page.connect("show-fps-changed", self._on_show_fps_changed)
-        self._mirror_settings_handler_id = self._settings_page.connect("mirror-changed", self._on_mirror_changed)
-        self._qr_settings_handler_id = self._settings_page._qr_row.connect("notify::active", self._on_settings_qr_changed)
-        self._vcam_settings_handler_id = self._settings_page._vc_toggle_row.connect("notify::active", self._on_settings_vcam_changed)
-        self._settings_page.connect("help-tooltips-changed", self._on_help_tooltips_changed)
-        self._settings_page.connect("capture-timer-changed", self._on_capture_timer_changed)
-        self._settings_page.connect("recording-config-changed", self._on_recording_config_changed)
+        self._mirror_settings_handler_id = self._settings_page.connect(
+            "mirror-changed", self._on_mirror_changed
+        )
+        self._qr_settings_handler_id = self._settings_page._qr_row.connect(
+            "notify::active", self._on_settings_qr_changed
+        )
+        self._vcam_settings_handler_id = self._settings_page._vc_toggle_row.connect(
+            "notify::active", self._on_settings_vcam_changed
+        )
+        self._settings_page.connect(
+            "help-tooltips-changed", self._on_help_tooltips_changed
+        )
+        self._settings_page.connect(
+            "capture-timer-changed", self._on_capture_timer_changed
+        )
+        self._settings_page.connect(
+            "recording-config-changed", self._on_recording_config_changed
+        )
         self._settings_page.connect("prefer-v4l2-changed", self._on_prefer_v4l2_changed)
-        self._settings_page.connect("resource-monitor-changed", self._on_resource_monitor_changed)
+        self._settings_page.connect(
+            "resource-monitor-changed", self._on_resource_monitor_changed
+        )
         self.connect("close-request", self._on_close)
         self.connect("map", self._on_window_mapped)
 
@@ -1269,7 +1346,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._camera_selector.set_active_camera(camera.id)
         self._settings.set("last-camera-id", camera.id)
         self.set_title(f"{APP_NAME} — {camera.name}")
-        
+
         # If we are switching away from a camera, ensure it resumes streaming in the background
         if old_active and old_active.id != camera.id:
             # We delay the bg vcam creation slightly to ensure the main pipeline has
@@ -1346,7 +1423,11 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                         )
                         if vcam_dev:
                             camera.extra["vcam_device"] = vcam_dev
-                            log.info("Pre-allocated vcam %s for gphoto2 camera %s", vcam_dev, camera.name)
+                            log.info(
+                                "Pre-allocated vcam %s for gphoto2 camera %s",
+                                vcam_dev,
+                                camera.name,
+                            )
 
                     controls = cached_controls
                     if controls is None:
@@ -1438,8 +1519,6 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             preferred_fmt = self._pick_preferred_format(camera)
             self._stream_engine.play(camera, fmt=preferred_fmt)
 
-
-
             # Show virtual camera dialog
             self._show_vcam_dialog(camera)
 
@@ -1454,9 +1533,11 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         if not vcam_device:
             return
         self._vcam_dialog_shown.add(camera.id)
-        
+
         # Show a simple notice instead of a blocking dialog
-        msg = _("Virtual Camera: {vcam_device} Created!").format(vcam_device=vcam_device)
+        msg = _("Virtual Camera: {vcam_device} Created!").format(
+            vcam_device=vcam_device
+        )
         self._show_notification(msg, "info", 4000)
 
     def _on_retry(self, _preview: PreviewArea) -> None:
@@ -1487,7 +1568,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             for cam in self._camera_manager.cameras:
                 self._stream_engine.ensure_bg_vcam(cam)
 
-    def _on_virtual_camera_device_toggled(self, _page, camera_id: str, active: bool) -> None:
+    def _on_virtual_camera_device_toggled(
+        self, _page, camera_id: str, active: bool
+    ) -> None:
         """Handle per-device virtual camera toggle."""
         self._update_vcam_badge()
         if active:
@@ -1499,7 +1582,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                 self._stream_engine.stop(stop_backend=False)
                 self._on_camera_selected(self._camera_selector, cam)
             else:
-                cam = next((c for c in self._camera_manager.cameras if c.id == camera_id), None)
+                cam = next(
+                    (c for c in self._camera_manager.cameras if c.id == camera_id), None
+                )
                 if cam:
                     self._stream_engine.ensure_bg_vcam(cam)
         else:
@@ -1513,6 +1598,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                 self._stream_engine._stop_bg_vcam(camera_id)
             # Make sure the device is fully released
             from core.virtual_camera import VirtualCamera
+
             VirtualCamera.release_device(camera_id)
 
     def _on_show_fps_changed(self, _page, show: bool) -> None:
@@ -1714,7 +1800,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
     def _on_capture_mode_response(
         self, _dialog: Adw.AlertDialog, response: str
     ) -> None:
-        capture_fn = self._do_native_capture if response == "native" else self._do_webcam_capture
+        capture_fn = (
+            self._do_native_capture if response == "native" else self._do_webcam_capture
+        )
         timer = self._settings.get("capture-timer")
         if timer and timer > 0:
             self._preview.start_countdown(timer, capture_fn)
@@ -1770,9 +1858,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             self._gallery.refresh()
             self._update_last_media_thumbnail(output_path)
         else:
-            self._show_notification(
-                _("Failed to capture photo."), "error"
-            )
+            self._show_notification(_("Failed to capture photo."), "error")
 
     def _do_native_capture(self) -> None:
         self._trigger_flash()
@@ -1807,9 +1893,10 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             try:
                 port = camera.extra.get("port", camera.device_path)
                 res = subprocess.run(
-                    ["gphoto2", "--port", port,
-                     "--get-config", "autoexposuremode"],
-                    capture_output=True, text=True, timeout=8,
+                    ["gphoto2", "--port", port, "--get-config", "autoexposuremode"],
+                    capture_output=True,
+                    text=True,
+                    timeout=8,
                 )
                 for line in res.stdout.splitlines():
                     if line.startswith("Current:") and "Movie" in line:
@@ -1826,6 +1913,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             if ok and self._stream_engine.mirror:
                 try:
                     import cv2
+
                     img = cv2.imread(output_path)
                     if img is not None:
                         img = cv2.flip(img, 1)
@@ -1843,9 +1931,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                 self._gallery.refresh()
                 self._update_last_media_thumbnail(result)
             else:
-                self._show_notification(
-                    _("Failed to capture photo."), "error"
-                )
+                self._show_notification(_("Failed to capture photo."), "error")
             # Resume streaming — clear active camera so the guard doesn't skip
             self._active_camera = None
             self._preview.show_status(
@@ -1882,7 +1968,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
     def _show_vcam_limit_dialog(self, max_devices: int) -> None:
         dialog = Adw.AlertDialog.new(
             _("Virtual Camera Limit Reached"),
-            _("The maximum limit of {} virtual cameras has been reached. Please disconnect some cameras or disable background virtual cameras in settings to connect a new one.").format(max_devices)
+            _(
+                "The maximum limit of {} virtual cameras has been reached. Please disconnect some cameras or disable background virtual cameras in settings to connect a new one."
+            ).format(max_devices),
         )
         dialog.add_response("ok", _("OK"))
         dialog.set_default_response("ok")
@@ -1899,9 +1987,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             "disconnected": (0.6, 0.6, 0.6),
             "error": (0.85, 0.2, 0.2),
         }
-        
+
         lower_status = status.lower()
-        color = (1.0, 0.76, 0.03) # yellow default
+        color = (1.0, 0.76, 0.03)  # yellow default
 
         for key, c in colors.items():
             if key in lower_status:
@@ -1934,7 +2022,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         """Handle new mobile cameras from EventBus."""
         if cam_info is None:
             # A camera disconnected. If it was active, reset.
-            was_active = self._active_camera and self._active_camera.id.startswith("phone:")
+            was_active = self._active_camera and self._active_camera.id.startswith(
+                "phone:"
+            )
             if was_active:
                 self._stream_engine.stop()
                 self._active_camera = None
@@ -1954,7 +2044,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             # A camera connected
             self._camera_manager.stop_hotplug()
             self._stream_engine._stop_bg_vcam(cam_info.id)
-            
+
             toast = Adw.Toast.new(f"📱  {cam_info.name}")
             toast.set_timeout(6)
             toast.set_button_label(_("Show"))
@@ -1963,7 +2053,6 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                 lambda _t: self._switch_to_phone_camera(cam_info.id),
             )
             self._toast_overlay.add_toast(toast)
-
 
     def _on_ip_camera_added(self, _dialog: IPCameraDialog, name: str, url: str) -> None:
         ip_list = self._settings.get("ip_cameras")
@@ -1975,6 +2064,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
     def _on_about(self, *_args) -> None:
         from ui.about_dialog import create_about_dialog
+
         dialog = create_about_dialog()
         self._immersion.present_dialog(dialog, self)
 
@@ -2000,7 +2090,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             if not real_blockers:
                 log.info(
                     "device-busy on %s: only expected producers %s — auto-retrying",
-                    device_path, blocking_apps,
+                    device_path,
+                    blocking_apps,
                 )
                 GLib.timeout_add(1500, lambda: self._retry_camera(busy_camera) or False)
                 return
@@ -2013,21 +2104,22 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         if blocking_apps:
             apps_str = ", ".join(blocking_apps)
             body = _(
-                "The camera \"%(camera)s\" is being used by: %(apps)s.\n\n"
+                'The camera "%(camera)s" is being used by: %(apps)s.\n\n'
                 "Close the other application or force-close it to free the camera."
             ) % {"camera": cam_label, "apps": apps_str}
         else:
-            body = _(
-                "The camera \"%s\" is being used by another application.\n\n"
-                "Close the other application to free the camera."
-            ) % cam_label
+            body = (
+                _(
+                    'The camera "%s" is being used by another application.\n\n'
+                    "Close the other application to free the camera."
+                )
+                % cam_label
+            )
 
         dialog = Adw.AlertDialog.new(_("Camera in use"), body)
 
         dialog.add_response("retry", _("Try again"))
-        dialog.set_response_appearance(
-            "retry", Adw.ResponseAppearance.SUGGESTED
-        )
+        dialog.set_response_appearance("retry", Adw.ResponseAppearance.SUGGESTED)
 
         if blocking_apps:
             first_app = blocking_apps[0]
@@ -2107,7 +2199,12 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                                 else:
                                     continue
                             if proc_uid != own_uid:
-                                log.warning("Skipping PID %s (UID %d != %d)", pid, proc_uid, own_uid)
+                                log.warning(
+                                    "Skipping PID %s (UID %d != %d)",
+                                    pid,
+                                    proc_uid,
+                                    own_uid,
+                                )
                                 continue
                         except (OSError, ValueError):
                             continue
@@ -2116,7 +2213,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                         except ProcessLookupError:
                             pass
             except Exception:
-                log.warning("Failed to kill processes on %s", device_path, exc_info=True)
+                log.warning(
+                    "Failed to kill processes on %s", device_path, exc_info=True
+                )
 
         def _on_done(_result: None = None) -> None:
             GLib.timeout_add(2000, lambda: self._retry_camera(camera) or False)
@@ -2173,14 +2272,14 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                 GLib.timeout_add(500, self._update_last_media_thumbnail)
         else:
             if not self._active_camera:
-                self._show_notification(
-                    _("No camera selected."), "warning"
-                )
+                self._show_notification(_("No camera selected."), "warning")
                 return
             # Build per-source volume dict from AudioMonitor
             source_volumes = {}
             for src_name in self._audio_monitor.all_source_names:
-                source_volumes[src_name] = self._audio_monitor.get_source_volume(src_name)
+                source_volumes[src_name] = self._audio_monitor.get_source_volume(
+                    src_name
+                )
             path = self._video_recorder.start(
                 self._active_camera,
                 self._stream_engine.pipeline,
@@ -2197,15 +2296,13 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                 # Update capture button state in video mode
                 if self._current_mode == "video":
                     self._bottom_capture_btn.add_css_class("recording")
-                    self._bottom_capture_btn.set_icon_name("media-playback-stop-symbolic")
+                    self._bottom_capture_btn.set_icon_name(
+                        "media-playback-stop-symbolic"
+                    )
                     self._update_tooltip(self._bottom_capture_btn, _("Stop recording"))
-                self._show_notification(
-                    _("Recording…"), "info", 0, progress=True
-                )
+                self._show_notification(_("Recording…"), "info", 0, progress=True)
             else:
-                self._show_notification(
-                    _("Failed to start recording."), "error"
-                )
+                self._show_notification(_("Failed to start recording."), "error")
 
     def _on_audio_source_toggled(
         self, _monitor: AudioMonitor, source_name: str, active: bool
@@ -2262,9 +2359,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
         def _on_applied(_result: None = None) -> None:
             self._controls_page.set_camera(camera)
-            self._show_notification(
-                _("Profile loaded: %s") % name, "success"
-            )
+            self._show_notification(_("Profile loaded: %s") % name, "success")
 
         run_async(_apply, on_success=_on_applied)
 
@@ -2309,7 +2404,10 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
         # Show toast for newly connected cameras (deduplicate by name)
         for cam in self._camera_manager.cameras:
-            if cam.id not in self._known_camera_ids and cam.name not in self._known_camera_names:
+            if (
+                cam.id not in self._known_camera_ids
+                and cam.name not in self._known_camera_names
+            ):
                 toast = Adw.Toast.new(f"📷  {cam.name}")
                 toast.set_timeout(4)
                 toast.set_button_label(_("Show"))
@@ -2360,8 +2458,11 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             and self._camera_manager.cameras
         ):
             # Active camera was disconnected but others remain — switch to first available
-            log.info("Active camera %s disconnected, switching to %s",
-                      self._active_camera.name, self._camera_manager.cameras[0].name)
+            log.info(
+                "Active camera %s disconnected, switching to %s",
+                self._active_camera.name,
+                self._camera_manager.cameras[0].name,
+            )
             # Stop old camera's backend (kills gphoto2/ffmpeg processes)
             self._stream_engine.stop()
             self._active_camera = None
@@ -2397,7 +2498,10 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
         # Background virtual cameras (cameras kept on after switching)
         for cam in self._camera_manager.cameras:
-            if cam.id in self._stream_engine._bg_vcam_pipelines or cam.id in self._stream_engine._bg_vcam_feeders:
+            if (
+                cam.id in self._stream_engine._bg_vcam_pipelines
+                or cam.id in self._stream_engine._bg_vcam_feeders
+            ):
                 if cam.name not in active_names:
                     active_names.append(cam.name)
 
@@ -2407,7 +2511,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             label = _("Phone (Browser Wi-Fi)")
             if label not in active_names:
                 active_names.append(label)
-        if (ctrl.scrcpy_usb and ctrl.scrcpy_usb.running) or (ctrl.scrcpy_wifi and ctrl.scrcpy_wifi.running):
+        if (ctrl.scrcpy_usb and ctrl.scrcpy_usb.running) or (
+            ctrl.scrcpy_wifi and ctrl.scrcpy_wifi.running
+        ):
             label = _("Phone (USB/Wi-Fi scrcpy)")
             if label not in active_names:
                 active_names.append(label)
@@ -2424,7 +2530,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                 cam_list = "\n".join(f"  • {n}" for n in active_names)
                 parts.append(_("Active cameras:") + "\n" + cam_list)
             if VirtualCamera.is_enabled():
-                parts.append(_("Virtual Camera is enabled (other apps may depend on it)."))
+                parts.append(
+                    _("Virtual Camera is enabled (other apps may depend on it).")
+                )
             parts.append(
                 _(
                     "If you choose to keep it running, "
@@ -2532,7 +2640,9 @@ class BigDigicamWindow(Adw.ApplicationWindow):
                     pass
             if disabled_ids:
                 self._sync_ui_after_optimize(disabled_ids)
-                toast = Adw.Toast.new(_("High resource usage detected. Optimized automatically."))
+                toast = Adw.Toast.new(
+                    _("High resource usage detected. Optimized automatically.")
+                )
                 toast.set_timeout(4)
                 self._toast_overlay.add_toast(toast)
             return
@@ -2589,77 +2699,99 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         se = self._stream_engine
 
         # Register monitorable features
-        mon.register_feature(FeatureDescriptor(
-            feature_id="effects",
-            label=_("Video effects"),
-            description=_("Real-time filters, background blur, artistic effects"),
-            is_active=lambda: se.effects.has_active_effects(),
-            disable=lambda: se.effects.reset_all(),
-            estimated_cpu=40.0,
-            estimated_ram_mb=150.0,
-        ))
-        mon.register_feature(FeatureDescriptor(
-            feature_id="virtual-camera",
-            label=_("Virtual camera"),
-            description=_("v4l2loopback output for video conferencing"),
-            is_active=lambda: se.vcam_active,
-            disable=lambda: se.stop_vcam(),
-            estimated_cpu=20.0,
-            estimated_ram_mb=80.0,
-            disableable=False,
-        ))
-        mon.register_feature(FeatureDescriptor(
-            feature_id="bg-vcam-feeders",
-            label=_("Background virtual cameras"),
-            description=_("Virtual camera feeds for inactive cameras"),
-            is_active=lambda: se.has_active_bg_vcams(),
-            disable=lambda: se.stop_all_bg_vcams(),
-            estimated_cpu=30.0,
-            estimated_ram_mb=100.0,
-        ))
-        mon.register_feature(FeatureDescriptor(
-            feature_id="recording",
-            label=_("Video recording"),
-            description=_("Active video recording with encoding"),
-            is_active=lambda: (
-                self._video_recorder is not None
-                and self._video_recorder.is_recording
-            ),
-            disable=lambda: self._on_record_toggle() if self._video_recorder.is_recording else None,
-            estimated_cpu=50.0,
-            estimated_ram_mb=150.0,
-            disableable=False,
-        ))
-        mon.register_feature(FeatureDescriptor(
-            feature_id="phone-server",
-            label=_("Phone camera server"),
-            description=_("HTTPS/WebSocket server for phone camera"),
-            is_active=lambda: self._mobile_device_ctrl.phone_server.running,
-            disable=lambda: None,
-            estimated_cpu=15.0,
-            estimated_ram_mb=50.0,
-            disableable=False,
-        ))
-        mon.register_feature(FeatureDescriptor(
-            feature_id="scrcpy",
-            label=_("Scrcpy (Android camera)"),
-            description=_("Android camera via USB/Wi-Fi ADB"),
-            is_active=lambda: self._mobile_device_ctrl.scrcpy_usb.running or self._mobile_device_ctrl.scrcpy_wifi.running,
-            disable=lambda: (self._mobile_device_ctrl.scrcpy_usb.stop(), self._mobile_device_ctrl.scrcpy_wifi.stop()),
-            estimated_cpu=40.0,
-            estimated_ram_mb=200.0,
-            disableable=False,
-        ))
-        mon.register_feature(FeatureDescriptor(
-            feature_id="airplay",
-            label=_("AirPlay receiver"),
-            description=_("Apple AirPlay screen mirroring via UxPlay"),
-            is_active=lambda: self._mobile_device_ctrl.airplay_receiver.running,
-            disable=lambda: None,
-            estimated_cpu=40.0,
-            estimated_ram_mb=200.0,
-            disableable=False,
-        ))
+        mon.register_feature(
+            FeatureDescriptor(
+                feature_id="effects",
+                label=_("Video effects"),
+                description=_("Real-time filters, background blur, artistic effects"),
+                is_active=lambda: se.effects.has_active_effects(),
+                disable=lambda: se.effects.reset_all(),
+                estimated_cpu=40.0,
+                estimated_ram_mb=150.0,
+            )
+        )
+        mon.register_feature(
+            FeatureDescriptor(
+                feature_id="virtual-camera",
+                label=_("Virtual camera"),
+                description=_("v4l2loopback output for video conferencing"),
+                is_active=lambda: se.vcam_active,
+                disable=lambda: se.stop_vcam(),
+                estimated_cpu=20.0,
+                estimated_ram_mb=80.0,
+                disableable=False,
+            )
+        )
+        mon.register_feature(
+            FeatureDescriptor(
+                feature_id="bg-vcam-feeders",
+                label=_("Background virtual cameras"),
+                description=_("Virtual camera feeds for inactive cameras"),
+                is_active=lambda: se.has_active_bg_vcams(),
+                disable=lambda: se.stop_all_bg_vcams(),
+                estimated_cpu=30.0,
+                estimated_ram_mb=100.0,
+            )
+        )
+        mon.register_feature(
+            FeatureDescriptor(
+                feature_id="recording",
+                label=_("Video recording"),
+                description=_("Active video recording with encoding"),
+                is_active=lambda: (
+                    self._video_recorder is not None
+                    and self._video_recorder.is_recording
+                ),
+                disable=lambda: (
+                    self._on_record_toggle()
+                    if self._video_recorder.is_recording
+                    else None
+                ),
+                estimated_cpu=50.0,
+                estimated_ram_mb=150.0,
+                disableable=False,
+            )
+        )
+        mon.register_feature(
+            FeatureDescriptor(
+                feature_id="phone-server",
+                label=_("Phone camera server"),
+                description=_("HTTPS/WebSocket server for phone camera"),
+                is_active=lambda: self._mobile_device_ctrl.phone_server.running,
+                disable=lambda: None,
+                estimated_cpu=15.0,
+                estimated_ram_mb=50.0,
+                disableable=False,
+            )
+        )
+        mon.register_feature(
+            FeatureDescriptor(
+                feature_id="scrcpy",
+                label=_("Scrcpy (Android camera)"),
+                description=_("Android camera via USB/Wi-Fi ADB"),
+                is_active=lambda: self._mobile_device_ctrl.scrcpy_usb.running
+                or self._mobile_device_ctrl.scrcpy_wifi.running,
+                disable=lambda: (
+                    self._mobile_device_ctrl.scrcpy_usb.stop(),
+                    self._mobile_device_ctrl.scrcpy_wifi.stop(),
+                ),
+                estimated_cpu=40.0,
+                estimated_ram_mb=200.0,
+                disableable=False,
+            )
+        )
+        mon.register_feature(
+            FeatureDescriptor(
+                feature_id="airplay",
+                label=_("AirPlay receiver"),
+                description=_("Apple AirPlay screen mirroring via UxPlay"),
+                is_active=lambda: self._mobile_device_ctrl.airplay_receiver.running,
+                disable=lambda: None,
+                estimated_cpu=40.0,
+                estimated_ram_mb=200.0,
+                disableable=False,
+            )
+        )
 
         mon.connect("high-resource", self._on_high_resource)
 

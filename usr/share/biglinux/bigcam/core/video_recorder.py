@@ -11,6 +11,7 @@ from typing import Any
 
 try:
     import cv2
+
     _HAS_CV2 = True
 except ImportError:
     _HAS_CV2 = False
@@ -26,6 +27,8 @@ from core.camera_manager import CameraManager
 from utils import xdg
 
 log = logging.getLogger(__name__)
+
+
 class VideoRecorder:
     """Records video+audio using a unified GStreamer pipeline fed by appsrc.
 
@@ -283,16 +286,16 @@ class VideoRecorder:
                         vol = self._source_volumes.get(dev, 1.0)
                     else:
                         vol = 0.0
-                    
+
                     # USB sources follow global clock
                     audio_str += (
                         f'pulsesrc device="{safe}" do-timestamp=true '
-                        f'provide-clock=false '
-                        f'buffer-time=500000 latency-time=100000 '
-                        f'name=asrc_{i} ! '
-                        f'queue max-size-time=2000000000 max-size-buffers=0 max-size-bytes=0 ! '
-                        f'audioconvert ! audioresample ! '
-                        f'volume name=avol_{i} volume={vol} ! amix. '
+                        f"provide-clock=false "
+                        f"buffer-time=500000 latency-time=100000 "
+                        f"name=asrc_{i} ! "
+                        f"queue max-size-time=2000000000 max-size-buffers=0 max-size-bytes=0 ! "
+                        f"audioconvert ! audioresample ! "
+                        f"volume name=avol_{i} volume={vol} ! amix. "
                     )
 
         escaped = self._output_path.replace('"', '\\"')
@@ -301,7 +304,7 @@ class VideoRecorder:
             f"caps=video/x-raw,format=BGR,width={w},height={h},framerate=30/1 ! "
             f"queue max-size-buffers=30 max-size-time=1000000000 leaky=downstream ! "
             f"videoconvert ! {enc_str} ! "
-            f"{muxer} name=mux ! filesink location=\"{escaped}\" "
+            f'{muxer} name=mux ! filesink location="{escaped}" '
             f"{audio_str}"
         )
 
@@ -331,14 +334,16 @@ class VideoRecorder:
             mic_vol_el = self._pipeline.get_by_name("avol_mic")
             if mic_vol_el:
                 self._audio_vol_elements["__mic__"] = mic_vol_el
-                
+
             for i, dev in enumerate(self._audio_source_devices):
                 vol_el = self._pipeline.get_by_name(f"avol_{i}")
                 if vol_el:
                     self._audio_vol_elements[dev] = vol_el
                     log.info(
                         "avol_%d (%s): volume=%.1f",
-                        i, dev, vol_el.get_property("volume"),
+                        i,
+                        dev,
+                        vol_el.get_property("volume"),
                     )
 
             bus = self._pipeline.get_bus()
@@ -368,7 +373,12 @@ class VideoRecorder:
             else:
                 vol = 0.0
             vol_el.set_property("volume", vol)
-            log.info("Recording audio %s: %s (vol=%.2f)", "unmuted" if active else "muted", source_name, vol)
+            log.info(
+                "Recording audio %s: %s (vol=%.2f)",
+                "unmuted" if active else "muted",
+                source_name,
+                vol,
+            )
 
     def set_muted(self, muted: bool) -> None:
         """Global mute/unmute all audio sources in the recording pipeline."""
@@ -469,7 +479,9 @@ class VideoRecorder:
                 self._remux_container(path)
 
             self._finalize_thread = threading.Thread(
-                target=_finalize, daemon=True, name="rec-finalize",
+                target=_finalize,
+                daemon=True,
+                name="rec-finalize",
             )
             self._finalize_thread.start()
 
@@ -494,13 +506,19 @@ class VideoRecorder:
                 capture_output=True,
                 timeout=120,
             )
-            if result.returncode == 0 and os.path.isfile(tmp) and os.path.getsize(tmp) > 0:
+            if (
+                result.returncode == 0
+                and os.path.isfile(tmp)
+                and os.path.getsize(tmp) > 0
+            ):
                 os.replace(tmp, path)
                 log.info("Container metadata fixed: %s", os.path.basename(path))
             else:
                 if os.path.isfile(tmp):
                     os.remove(tmp)
-                log.warning("Remux failed: %s", result.stderr.decode(errors="replace")[:300])
+                log.warning(
+                    "Remux failed: %s", result.stderr.decode(errors="replace")[:300]
+                )
         except FileNotFoundError:
             log.debug("ffmpeg not available for container remux")
         except subprocess.TimeoutExpired:

@@ -78,8 +78,7 @@ class ScrcpyCamera(GObject.Object):
     def is_available() -> bool:
         """Return True if scrcpy and adb binaries are on PATH."""
         return (
-            shutil.which(_SCRCPY_BIN) is not None
-            and shutil.which(_ADB_BIN) is not None
+            shutil.which(_SCRCPY_BIN) is not None and shutil.which(_ADB_BIN) is not None
         )
 
     @staticmethod
@@ -161,8 +160,14 @@ class ScrcpyCamera(GObject.Object):
             if state == "device" and (model == serial or model.startswith("2")):
                 try:
                     name_result = SecureCommandRunner.run_safe(
-                        [_ADB_BIN, "-s", serial, "shell",
-                         "getprop", "ro.product.marketname"],
+                        [
+                            _ADB_BIN,
+                            "-s",
+                            serial,
+                            "shell",
+                            "getprop",
+                            "ro.product.marketname",
+                        ],
                         capture_output=True,
                         text=True,
                         timeout=5,
@@ -225,11 +230,13 @@ class ScrcpyCamera(GObject.Object):
                 if m:
                     vid = m.group(1).lower()
                     if vid in android_vendors:
-                        found.append({
-                            "vendor_id": vid,
-                            "product_id": m.group(2).lower(),
-                            "name": m.group(3).strip(),
-                        })
+                        found.append(
+                            {
+                                "vendor_id": vid,
+                                "product_id": m.group(2).lower(),
+                                "name": m.group(3).strip(),
+                            }
+                        )
         except Exception as exc:
             log.warning("lsusb failed: %s", exc)
         return found
@@ -330,6 +337,7 @@ class ScrcpyCamera(GObject.Object):
 
         # Connect via WiFi
         import time
+
         time.sleep(1)  # Give the device time to switch
         target = f"{ip}:5555"
         try:
@@ -370,9 +378,7 @@ class ScrcpyCamera(GObject.Object):
         for m in re.finditer(
             r"--camera-id=(\d+)\s+\(facing=(\w+),\s*size=(\d+x\d+)\)", output
         ):
-            cameras.append(
-                {"id": m.group(1), "facing": m.group(2), "size": m.group(3)}
-            )
+            cameras.append({"id": m.group(1), "facing": m.group(2), "size": m.group(3)})
         return cameras
 
     # -- streaming -----------------------------------------------------------
@@ -533,7 +539,11 @@ class ScrcpyCamera(GObject.Object):
                 log.debug("scrcpy: %s", line)
 
                 # scrcpy logs "v4l2 sink started" when writing to the device
-                if "v4l2 sink started" in line or "Texture:" in line or "New stream" in line:
+                if (
+                    "v4l2 sink started" in line
+                    or "Texture:" in line
+                    or "New stream" in line
+                ):
                     if not connected:
                         connected = True
                         w, h = self._read_v4l2_resolution()

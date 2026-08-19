@@ -190,9 +190,15 @@ class GPhoto2Backend(CameraBackend):
 
     def is_available(self) -> bool:
         try:
-            SecureCommandRunner.run_safe(["gphoto2", "--version"], capture_output=True, check=True, timeout=5)
+            SecureCommandRunner.run_safe(
+                ["gphoto2", "--version"], capture_output=True, check=True, timeout=5
+            )
             return True
-        except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        except (
+            FileNotFoundError,
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+        ):
             return False
 
     @staticmethod
@@ -207,7 +213,11 @@ class GPhoto2Backend(CameraBackend):
         ):
             try:
                 result = SecureCommandRunner.run_safe(
-                    cmd, capture_output=True, text=True, timeout=15, env=env,
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                    env=env,
                 )
                 if result.returncode != 0:
                     continue
@@ -231,7 +241,10 @@ class GPhoto2Backend(CameraBackend):
         try:
             result = SecureCommandRunner.run_safe(
                 ["gphoto2", "--port", port, "--list-config"],
-                capture_output=True, text=True, timeout=15, env=env,
+                capture_output=True,
+                text=True,
+                timeout=15,
+                env=env,
             )
             if result.returncode != 0:
                 return True  # assume OK if we can't check
@@ -245,7 +258,8 @@ class GPhoto2Backend(CameraBackend):
                 log.info(
                     "Camera at %s has only %d config entries and no "
                     "capturesettings — likely MTP/basic PTP only",
-                    port, len(lines),
+                    port,
+                    len(lines),
                 )
                 return False
             return True
@@ -360,7 +374,9 @@ class GPhoto2Backend(CameraBackend):
                             if old_port in cls._active_streams:
                                 stream_info = cls._active_streams.pop(old_port)
                                 cls._active_streams[port] = stream_info
-                                log.debug(f"Updated _active_streams: {old_port} -> {port}")
+                                log.debug(
+                                    f"Updated _active_streams: {old_port} -> {port}"
+                                )
                         camera.extra["port"] = port
                         camera.device_path = port
                         camera.id = f"gphoto2:{port}"
@@ -712,7 +728,11 @@ class GPhoto2Backend(CameraBackend):
                 timeout=10,
             )
             return True
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+        except (
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+        ):
             return False
 
     # -- gstreamer -----------------------------------------------------------
@@ -786,7 +806,9 @@ class GPhoto2Backend(CameraBackend):
         v4l2_dev = "none"
         log.info(
             "Starting gphoto2 streaming: port=%s, udp=%s, v4l2_dev=%s",
-            port_arg, udp_port, v4l2_dev,
+            port_arg,
+            udp_port,
+            v4l2_dev,
         )
         try:
             import tempfile
@@ -828,11 +850,18 @@ class GPhoto2Backend(CameraBackend):
             log.error("GPhoto2 script failed (code %d): %s", res.returncode, output)
             # Detect PTP-level failures (camera doesn't really support streaming)
             out_lower = output.lower()
-            if any(kw in out_lower for kw in (
-                "ptp general error", "ptp error", "ptp timeout",
-                "0 quadros", "0 frames",
-                "not valid", "não é válido",
-            )):
+            if any(
+                kw in out_lower
+                for kw in (
+                    "ptp general error",
+                    "ptp error",
+                    "ptp timeout",
+                    "0 quadros",
+                    "0 frames",
+                    "not valid",
+                    "não é válido",
+                )
+            ):
                 log.warning(
                     "Camera %s failed with PTP errors — likely lacks "
                     "PC Remote mode for live streaming",
@@ -899,14 +928,22 @@ class GPhoto2Backend(CameraBackend):
             else:
                 with self._streams_lock:
                     self._active_streams.clear()
-                SecureCommandRunner.run_safe(["pkill", "-f", "gphoto2 --"], capture_output=True, timeout=5)
-                time.sleep(1)
-                SecureCommandRunner.run_safe(["pkill", "-9", "-f", "gphoto2 --"], capture_output=True, timeout=5)
                 SecureCommandRunner.run_safe(
-                    ["pkill", "-9", "-f", "ffmpeg.*mpegts"], capture_output=True, timeout=5
+                    ["pkill", "-f", "gphoto2 --"], capture_output=True, timeout=5
+                )
+                time.sleep(1)
+                SecureCommandRunner.run_safe(
+                    ["pkill", "-9", "-f", "gphoto2 --"], capture_output=True, timeout=5
                 )
                 SecureCommandRunner.run_safe(
-                    ["pkill", "-9", "-f", "ffmpeg.*v4l2"], capture_output=True, timeout=5
+                    ["pkill", "-9", "-f", "ffmpeg.*mpegts"],
+                    capture_output=True,
+                    timeout=5,
+                )
+                SecureCommandRunner.run_safe(
+                    ["pkill", "-9", "-f", "ffmpeg.*v4l2"],
+                    capture_output=True,
+                    timeout=5,
                 )
         except Exception:
             log.warning("stop_streaming cleanup error", exc_info=True)
@@ -967,13 +1004,15 @@ class GPhoto2Backend(CameraBackend):
 
                 log.info(
                     "capture_photo attempt %d: starting gphoto2 on port %s",
-                    attempt + 1, port,
+                    attempt + 1,
+                    port,
                 )
                 result = SecureCommandRunner.run_safe(
                     [
                         "gphoto2",
                         *camera_arg,
-                        "--debug-logfile", debug_log,
+                        "--debug-logfile",
+                        debug_log,
                         "--capture-image-and-download",
                         "--filename",
                         output_path,
@@ -986,7 +1025,8 @@ class GPhoto2Backend(CameraBackend):
                 )
                 log.info(
                     "capture_photo attempt %d: rc=%d stdout=%s stderr=%s",
-                    attempt + 1, result.returncode,
+                    attempt + 1,
+                    result.returncode,
                     result.stdout[:200] if result.stdout else "",
                     result.stderr[:200] if result.stderr else "",
                 )

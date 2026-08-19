@@ -11,9 +11,7 @@ import subprocess
 import logging
 
 # Configure logging early
-_log_dir = os.environ.get(
-    "XDG_STATE_HOME", os.path.expanduser("~/.local/state")
-)
+_log_dir = os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state"))
 _log_dir = os.path.join(_log_dir, "bigcam")
 os.makedirs(_log_dir, exist_ok=True)
 _log_path = os.path.join(_log_dir, "debug.log")
@@ -107,8 +105,8 @@ class BigDigicamApp(Adw.Application):
         # Also add the system icon path that contains bigcam.svg
         sys_icon_dir = os.path.join(
             os.path.dirname(base_dir),  # up from bigcam/ to biglinux/
-            "..",                        # up to usr/share/
-            "icons",                     # usr/share/icons
+            "..",  # up to usr/share/
+            "icons",  # usr/share/icons
         )
         sys_icon_dir = os.path.realpath(sys_icon_dir)
         if (

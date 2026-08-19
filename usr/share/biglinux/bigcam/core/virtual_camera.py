@@ -10,7 +10,6 @@ import subprocess
 from utils.command_runner import SecureCommandRunner
 import threading
 
-
 log = logging.getLogger(__name__)
 
 _V4L2LOOPBACK_CTL = shutil.which("v4l2loopback-ctl") or "/usr/sbin/v4l2loopback-ctl"
@@ -171,7 +170,10 @@ class VirtualCamera:
                 max_n = max(max_n, int(m.group(1)))
         if max_n >= cls._next_vcam_number:
             cls._next_vcam_number = max_n + 1
-            log.debug("Synced _next_vcam_number to %d from existing labels", cls._next_vcam_number)
+            log.debug(
+                "Synced _next_vcam_number to %d from existing labels",
+                cls._next_vcam_number,
+            )
 
     @staticmethod
     def find_loopback_device() -> str:
@@ -215,9 +217,19 @@ class VirtualCamera:
             dev_num += 1
         try:
             result = SecureCommandRunner.run_safe(
-                ["sudo", "-n", _V4L2LOOPBACK_CTL, "add",
-                 "-n", label, "-x", "1", "-b", "8",
-                 f"/dev/video{dev_num}"],
+                [
+                    "sudo",
+                    "-n",
+                    _V4L2LOOPBACK_CTL,
+                    "add",
+                    "-n",
+                    label,
+                    "-x",
+                    "1",
+                    "-b",
+                    "8",
+                    f"/dev/video{dev_num}",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=15,
@@ -253,8 +265,9 @@ class VirtualCamera:
                     cls._dynamic_devices.discard(dev)
                 log.info("Deleted v4l2loopback device: %s", dev)
                 return True
-            log.warning("v4l2loopback-ctl delete failed for %s: %s",
-                        dev, result.stderr.strip())
+            log.warning(
+                "v4l2loopback-ctl delete failed for %s: %s", dev, result.stderr.strip()
+            )
         except Exception:
             log.error("Failed to delete v4l2loopback device %s", dev, exc_info=True)
         return False
@@ -268,18 +281,20 @@ class VirtualCamera:
                 return cls._allocations[camera_id]
             # Check max devices limit
             if len(cls._allocations) >= cls._max_devices:
-                log.warning("Max virtual cameras (%d) reached, cannot allocate for %s",
-                            cls._max_devices, camera_id)
+                log.warning(
+                    "Max virtual cameras (%d) reached, cannot allocate for %s",
+                    cls._max_devices,
+                    camera_id,
+                )
                 from core.event_bus import event_bus
+
                 event_bus.emit("vcam-limit-reached", cls._max_devices)
                 return ""
             device = ""
             if cls._is_dynamic_supported():
                 # Prefer a free device whose label matches the template
                 dev_labels = cls._get_device_labels()
-                tpl_pat = re.compile(
-                    re.escape(cls._name_template) + r"\s+\d+$"
-                )
+                tpl_pat = re.compile(re.escape(cls._name_template) + r"\s+\d+$")
                 allocated = set(cls._allocations.values())
                 for dev in cls.find_all_loopback_devices():
                     if dev not in allocated:
@@ -303,6 +318,7 @@ class VirtualCamera:
                 log.info("Allocated %s for camera %s", device, camera_id)
             else:
                 from core.event_bus import event_bus
+
                 actual_limit = min(len(cls._allocations), cls._max_devices)
                 event_bus.emit("vcam-limit-reached", actual_limit)
             return device

@@ -176,9 +176,7 @@ class PhotoGallery(Gtk.Box):
 
     def _update_sel_label(self) -> None:
         n = len(self._selected)
-        self._sel_label.set_label(
-            _("%d selected") % n if n else _("0 selected")
-        )
+        self._sel_label.set_label(_("%d selected") % n if n else _("0 selected"))
 
     # ── Mapped / refresh ─────────────────────────────────────────────
 
@@ -338,14 +336,18 @@ class PhotoGallery(Gtk.Box):
                 icon.set_pixel_size(self.LIST_THUMB)
                 frame.set_child(icon)
 
-        self._thumb_pool.submit(lambda: GLib.idle_add(_on_list_thumb, _load_list_thumb()))
+        self._thumb_pool.submit(
+            lambda: GLib.idle_add(_on_list_thumb, _load_list_thumb())
+        )
 
         if self._selection_mode:
             check = Gtk.CheckButton(active=path in self._selected)
             check.set_valign(Gtk.Align.CENTER)
             check.connect("toggled", self._on_check_toggled, path)
             row.add_suffix(check)
-            row.connect("activated", lambda _r, c=check: c.set_active(not c.get_active()))
+            row.connect(
+                "activated", lambda _r, c=check: c.set_active(not c.get_active())
+            )
         else:
             row.connect("activated", self._on_row_activated, path)
             del_btn = Gtk.Button.new_from_icon_name("user-trash-symbolic")

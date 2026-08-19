@@ -295,6 +295,7 @@ class AudioMonitor(GObject.Object):
             volume_cb(self._source_volumes.get(name, self._volume))
             if self._muted or not active:
                 mute_cb(True)
+
                 # Retry mute in case the audio sink-input hasn't appeared yet
                 def _retry_mute(
                     _name: str = name, _cb: Callable[[bool], None] = mute_cb
@@ -338,11 +339,19 @@ class AudioMonitor(GObject.Object):
                 self._pactl_volume_external(name, vol)
                 if self._muted or not src_active:
                     self._pactl_mute_external(name, True)
-                log.info("Resolved sink-input #%d for external source %s (pid %d)", idx, name, pid)
+                log.info(
+                    "Resolved sink-input #%d for external source %s (pid %d)",
+                    idx,
+                    name,
+                    pid,
+                )
                 return
             import time
+
             time.sleep(1)
-        log.warning("Could not find sink-input for external source %s (pid %d)", name, pid)
+        log.warning(
+            "Could not find sink-input for external source %s (pid %d)", name, pid
+        )
 
     @staticmethod
     def _find_sink_input_by_pid(pid: int) -> int | None:
@@ -357,7 +366,9 @@ class AudioMonitor(GObject.Object):
         try:
             child_result = SecureCommandRunner.run_safe(
                 ["pgrep", "--parent", str(pid)],
-                capture_output=True, text=True, timeout=3,
+                capture_output=True,
+                text=True,
+                timeout=3,
             )
             for cline in child_result.stdout.splitlines():
                 cline = cline.strip()
@@ -373,7 +384,9 @@ class AudioMonitor(GObject.Object):
         try:
             result = SecureCommandRunner.run_safe(
                 ["pactl", "list", "sink-inputs"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
         except (FileNotFoundError, subprocess.TimeoutExpired):
             return None
@@ -418,7 +431,9 @@ class AudioMonitor(GObject.Object):
         try:
             cl_result = SecureCommandRunner.run_safe(
                 ["pactl", "list", "clients"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
         except (FileNotFoundError, subprocess.TimeoutExpired):
             return None
@@ -467,7 +482,8 @@ class AudioMonitor(GObject.Object):
         try:
             SecureCommandRunner.run_safe(
                 ["pactl", "set-sink-input-volume", str(info["index"]), f"{pct}%"],
-                capture_output=True, timeout=3,
+                capture_output=True,
+                timeout=3,
             )
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
@@ -485,9 +501,14 @@ class AudioMonitor(GObject.Object):
             return
         try:
             SecureCommandRunner.run_safe(
-                ["pactl", "set-sink-input-mute", str(info["index"]),
-                 "1" if muted else "0"],
-                capture_output=True, timeout=3,
+                [
+                    "pactl",
+                    "set-sink-input-mute",
+                    str(info["index"]),
+                    "1" if muted else "0",
+                ],
+                capture_output=True,
+                timeout=3,
             )
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
@@ -562,7 +583,9 @@ class AudioMonitor(GObject.Object):
         try:
             result = SecureCommandRunner.run_safe(
                 ["pactl", "list", "sink-inputs"],
-                capture_output=True, text=True, timeout=3,
+                capture_output=True,
+                text=True,
+                timeout=3,
             )
             if result.returncode != 0:
                 return GLib.SOURCE_REMOVE
@@ -574,11 +597,13 @@ class AudioMonitor(GObject.Object):
                     if is_bigcam and cur_idx is not None:
                         SecureCommandRunner.run_safe(
                             ["pactl", "set-sink-input-mute", str(cur_idx), "0"],
-                            capture_output=True, timeout=3,
+                            capture_output=True,
+                            timeout=3,
                         )
                         SecureCommandRunner.run_safe(
                             ["pactl", "set-sink-input-volume", str(cur_idx), "100%"],
-                            capture_output=True, timeout=3,
+                            capture_output=True,
+                            timeout=3,
                         )
                     try:
                         cur_idx = int(stripped.split("#", 1)[1])
@@ -591,11 +616,13 @@ class AudioMonitor(GObject.Object):
             if is_bigcam and cur_idx is not None:
                 SecureCommandRunner.run_safe(
                     ["pactl", "set-sink-input-mute", str(cur_idx), "0"],
-                    capture_output=True, timeout=3,
+                    capture_output=True,
+                    timeout=3,
                 )
                 SecureCommandRunner.run_safe(
                     ["pactl", "set-sink-input-volume", str(cur_idx), "100%"],
-                    capture_output=True, timeout=3,
+                    capture_output=True,
+                    timeout=3,
                 )
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
@@ -609,22 +636,27 @@ class AudioMonitor(GObject.Object):
 
         return GLib.SOURCE_REMOVE
 
-    def _on_bus_eos(
-        self, _bus: Gst.Bus, _msg: Gst.Message, source: str
-    ) -> None:
+    def _on_bus_eos(self, _bus: Gst.Bus, _msg: Gst.Message, source: str) -> None:
         count = self._restart_counts.get(source, 0) + 1
         self._restart_counts[source] = count
         if count > 5:
-            log.warning("Audio pipeline EOS for %s – too many restarts (%d), giving up", source, count)
+            log.warning(
+                "Audio pipeline EOS for %s – too many restarts (%d), giving up",
+                source,
+                count,
+            )
             self._stop_source(source)
             return
         delay = min(500 * count, 5000)  # backoff: 500ms, 1s, 1.5s, ... max 5s
-        log.warning("Audio pipeline EOS for %s – restarting (attempt %d, delay %dms)", source, count, delay)
+        log.warning(
+            "Audio pipeline EOS for %s – restarting (attempt %d, delay %dms)",
+            source,
+            count,
+            delay,
+        )
         GLib.timeout_add(delay, self._restart_source, source)
 
-    def _on_bus_error(
-        self, _bus: Gst.Bus, msg: Gst.Message, source: str
-    ) -> None:
+    def _on_bus_error(self, _bus: Gst.Bus, msg: Gst.Message, source: str) -> None:
         err, debug = msg.parse_error()
         log.error("Audio pipeline error for %s: %s (%s)", source, err.message, debug)
         # Restart the source; if device is gone, re-detect will clean up

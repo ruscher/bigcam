@@ -43,7 +43,11 @@ class SettingsPage(Gtk.ScrolledWindow):
         "mirror-changed": (GObject.SignalFlags.RUN_LAST, None, (bool,)),
         "qr-detected": (GObject.SignalFlags.RUN_LAST, None, (str,)),
         "virtual-camera-toggled": (GObject.SignalFlags.RUN_LAST, None, (bool,)),
-        "virtual-camera-device-toggled": (GObject.SignalFlags.RUN_LAST, None, (str, bool)),
+        "virtual-camera-device-toggled": (
+            GObject.SignalFlags.RUN_LAST,
+            None,
+            (str, bool),
+        ),
         "resolution-changed": (GObject.SignalFlags.RUN_LAST, None, (str,)),
         "fps-limit-changed": (GObject.SignalFlags.RUN_LAST, None, (int,)),
         "grid-overlay-changed": (GObject.SignalFlags.RUN_LAST, None, (bool,)),
@@ -57,7 +61,9 @@ class SettingsPage(Gtk.ScrolledWindow):
         "resource-monitor-changed": (GObject.SignalFlags.RUN_LAST, None, (bool,)),
     }
 
-    def __init__(self, settings: SettingsManager, stream_engine=None, camera_manager=None) -> None:
+    def __init__(
+        self, settings: SettingsManager, stream_engine=None, camera_manager=None
+    ) -> None:
         super().__init__(
             hscrollbar_policy=Gtk.PolicyType.NEVER,
             vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
@@ -98,9 +104,12 @@ class SettingsPage(Gtk.ScrolledWindow):
 
     def _build_general(self, content: Gtk.Box) -> None:
         general = Adw.PreferencesGroup(title=_("General"))
-        general.set_header_suffix(self._make_group_reset_button(
-            _("Reset general settings"), self._on_reset_general,
-        ))
+        general.set_header_suffix(
+            self._make_group_reset_button(
+                _("Reset general settings"),
+                self._on_reset_general,
+            )
+        )
 
         # Photo directory
         photo_row = Adw.ActionRow(
@@ -138,14 +147,14 @@ class SettingsPage(Gtk.ScrolledWindow):
 
         # Theme
         self._theme_row = Adw.ComboRow(title=_("Theme"))
-        self._theme_row.add_prefix(Gtk.Image.new_from_icon_name("preferences-desktop-appearance-symbolic"))
+        self._theme_row.add_prefix(
+            Gtk.Image.new_from_icon_name("preferences-desktop-appearance-symbolic")
+        )
         theme_model = Gtk.StringList()
         for t in (_("Light"), _("Dark")):
             theme_model.append(t)
         self._theme_row.set_model(theme_model)
-        theme_idx = {"light": 0, "dark": 1}.get(
-            self._settings.get("theme"), 1
-        )
+        theme_idx = {"light": 0, "dark": 1}.get(self._settings.get("theme"), 1)
         self._theme_row.set_selected(theme_idx)
         self._theme_row.update_property(
             [Gtk.AccessibleProperty.LABEL], [_("Application theme")]
@@ -157,7 +166,9 @@ class SettingsPage(Gtk.ScrolledWindow):
             title=_("USB hotplug detection"),
             subtitle=_("Automatically detect cameras when plugged or unplugged."),
         )
-        self._hotplug_row.add_prefix(Gtk.Image.new_from_icon_name("media-removable-symbolic"))
+        self._hotplug_row.add_prefix(
+            Gtk.Image.new_from_icon_name("media-removable-symbolic")
+        )
         self._hotplug_row.set_active(self._settings.get("hotplug_enabled"))
         self._hotplug_row.update_property(
             [Gtk.AccessibleProperty.LABEL], [_("USB hotplug detection")]
@@ -199,12 +210,14 @@ class SettingsPage(Gtk.ScrolledWindow):
         # Auto-optimize resources
         auto_opt_row = Adw.SwitchRow(
             title=_("Auto-optimize resources"),
-            subtitle=_("Automatically disable heavy background features when usage is high."),
+            subtitle=_(
+                "Automatically disable heavy background features when usage is high."
+            ),
         )
-        auto_opt_row.add_prefix(
-            Gtk.Image.new_from_icon_name("system-run-symbolic")
+        auto_opt_row.add_prefix(Gtk.Image.new_from_icon_name("system-run-symbolic"))
+        auto_opt_row.set_active(
+            self._settings.get("resource-monitor-auto-optimize", False)
         )
-        auto_opt_row.set_active(self._settings.get("resource-monitor-auto-optimize", False))
         auto_opt_row.update_property(
             [Gtk.AccessibleProperty.LABEL], [_("Auto-optimize resources")]
         )
@@ -233,15 +246,20 @@ class SettingsPage(Gtk.ScrolledWindow):
 
     def _build_preview(self, content: Gtk.Box) -> None:
         preview = Adw.PreferencesGroup(title=_("Preview"))
-        preview.set_header_suffix(self._make_group_reset_button(
-            _("Reset preview settings"), self._on_reset_preview,
-        ))
+        preview.set_header_suffix(
+            self._make_group_reset_button(
+                _("Reset preview settings"),
+                self._on_reset_preview,
+            )
+        )
 
         self._mirror_row = Adw.SwitchRow(
             title=_("Mirror preview"),
             subtitle=_("Flip the preview horizontally like a mirror."),
         )
-        self._mirror_row.add_prefix(Gtk.Image.new_from_icon_name("object-flip-horizontal-symbolic"))
+        self._mirror_row.add_prefix(
+            Gtk.Image.new_from_icon_name("object-flip-horizontal-symbolic")
+        )
         self._mirror_row.set_active(self._settings.get("mirror_preview"))
         self._mirror_row.update_property(
             [Gtk.AccessibleProperty.LABEL], [_("Mirror preview")]
@@ -252,7 +270,9 @@ class SettingsPage(Gtk.ScrolledWindow):
         self._show_fps_row = Adw.SwitchRow(
             title=_("Show FPS counter"),
         )
-        self._show_fps_row.add_prefix(Gtk.Image.new_from_icon_name("preferences-system-symbolic"))
+        self._show_fps_row.add_prefix(
+            Gtk.Image.new_from_icon_name("preferences-system-symbolic")
+        )
         self._show_fps_row.set_active(self._settings.get("show_fps"))
         self._show_fps_row.update_property(
             [Gtk.AccessibleProperty.LABEL], [_("Show FPS counter")]
@@ -274,7 +294,9 @@ class SettingsPage(Gtk.ScrolledWindow):
             title=_("Background transparency"),
             subtitle=_("Controls the window background transparency."),
         )
-        window_opacity_row.add_prefix(Gtk.Image.new_from_icon_name("preferences-desktop-wallpaper-symbolic"))
+        window_opacity_row.add_prefix(
+            Gtk.Image.new_from_icon_name("preferences-desktop-wallpaper-symbolic")
+        )
         self._window_opacity_scale = Gtk.Scale.new_with_range(
             Gtk.Orientation.HORIZONTAL, 0, 100, 5
         )
@@ -291,7 +313,9 @@ class SettingsPage(Gtk.ScrolledWindow):
             title=_("Overlay opacity"),
             subtitle=_("Controls bar background darkness."),
         )
-        opacity_row.add_prefix(Gtk.Image.new_from_icon_name("weather-clear-night-symbolic"))
+        opacity_row.add_prefix(
+            Gtk.Image.new_from_icon_name("weather-clear-night-symbolic")
+        )
         self._opacity_scale = Gtk.Scale.new_with_range(
             Gtk.Orientation.HORIZONTAL, 0, 100, 5
         )
@@ -308,7 +332,9 @@ class SettingsPage(Gtk.ScrolledWindow):
             title=_("Controls opacity"),
             subtitle=_("Transparency of the buttons over the preview."),
         )
-        controls_opacity_row.add_prefix(Gtk.Image.new_from_icon_name("preferences-desktop-accessibility-symbolic"))
+        controls_opacity_row.add_prefix(
+            Gtk.Image.new_from_icon_name("preferences-desktop-accessibility-symbolic")
+        )
         self._controls_opacity_scale = Gtk.Scale.new_with_range(
             Gtk.Orientation.HORIZONTAL, 20, 100, 5
         )
@@ -322,24 +348,62 @@ class SettingsPage(Gtk.ScrolledWindow):
 
         self._v4l2_row = Adw.SwitchRow(
             title=_("Direct V4L2 access"),
-            subtitle=_("Bypass PipeWire and access the camera directly. May fix flickering on some webcams."),
+            subtitle=_(
+                "Bypass PipeWire and access the camera directly. May fix flickering on some webcams."
+            ),
         )
         self._v4l2_row.add_prefix(Gtk.Image.new_from_icon_name("camera-video-symbolic"))
         self._v4l2_row.set_active(self._settings.get("prefer-v4l2"))
         self._v4l2_row.connect("notify::active", self._on_prefer_v4l2)
         preview.add(self._v4l2_row)
 
+        # Video stabilization (requires OpenCV)
+        if _HAS_CV2 and self._engine is not None:
+            self._stab_row = Adw.SwitchRow(
+                title=_("Enable stabilization"),
+                subtitle=_("Apply lightweight frame stabilization and denoising."),
+            )
+            self._stab_row.add_prefix(
+                Gtk.Image.new_from_icon_name("transform-move-symbolic")
+            )
+            stab_active = bool(self._settings.get("stabilization-enabled"))
+            self._stab_row.set_active(stab_active)
+            self._stab_row.connect("notify::active", self._on_stabilization)
+            preview.add(self._stab_row)
+
+            # Smoothing slider
+            self._stab_smooth_row = Adw.ActionRow(title=_("Stabilization smoothing"))
+            self._stab_smooth_row.add_prefix(
+                Gtk.Image.new_from_icon_name("view-filter-symbolic")
+            )
+            self._stab_smooth_scale = Gtk.Scale.new_with_range(
+                Gtk.Orientation.HORIZONTAL, 1, 20, 1
+            )
+            self._stab_smooth_scale.set_value(
+                self._settings.get("stabilization-smoothing") or 8
+            )
+            self._stab_smooth_scale.set_hexpand(True)
+            self._stab_smooth_scale.set_valign(Gtk.Align.CENTER)
+            self._stab_smooth_scale.connect("value-changed", self._on_stab_smoothing)
+            self._stab_smooth_row.add_suffix(self._stab_smooth_scale)
+            preview.add(self._stab_smooth_row)
+
         content.append(preview)
 
         # -- Camera group (resolution, FPS, timer) ---------------------------
         camera_group = Adw.PreferencesGroup(title=_("Camera"))
-        camera_group.set_header_suffix(self._make_group_reset_button(
-            _("Reset camera settings"), self._on_reset_camera,
-        ))
+        camera_group.set_header_suffix(
+            self._make_group_reset_button(
+                _("Reset camera settings"),
+                self._on_reset_camera,
+            )
+        )
 
         # Resolution — fixed tiers, filtered per-camera
         self._res_combo = Adw.ComboRow(title=_("Resolution"))
-        self._res_combo.add_prefix(Gtk.Image.new_from_icon_name("video-display-symbolic"))
+        self._res_combo.add_prefix(
+            Gtk.Image.new_from_icon_name("video-display-symbolic")
+        )
         self._all_res_tiers: list[tuple[str, str]] = [
             ("", _("Auto")),
             ("480", "480p"),
@@ -362,7 +426,9 @@ class SettingsPage(Gtk.ScrolledWindow):
 
         # FPS limit
         self._fps_combo = Adw.ComboRow(title=_("FPS limit"))
-        self._fps_combo.add_prefix(Gtk.Image.new_from_icon_name("media-playback-start-symbolic"))
+        self._fps_combo.add_prefix(
+            Gtk.Image.new_from_icon_name("media-playback-start-symbolic")
+        )
         fps_model = Gtk.StringList()
         for label in (_("Auto"), "15", "24", "30", "60"):
             fps_model.append(label)
@@ -375,7 +441,6 @@ class SettingsPage(Gtk.ScrolledWindow):
             self._fps_combo.set_selected(0)
         self._fps_combo.connect("notify::selected", self._on_fps_limit)
         camera_group.add(self._fps_combo)
-
 
         # Capture timer
         self._timer_row = Adw.ComboRow(
@@ -401,9 +466,12 @@ class SettingsPage(Gtk.ScrolledWindow):
     def _build_recording(self, content: Gtk.Box) -> None:
         """Recording codec/container/bitrate settings."""
         group = Adw.PreferencesGroup(title=_("Recording"))
-        group.set_header_suffix(self._make_group_reset_button(
-            _("Reset recording settings"), self._on_reset_recording,
-        ))
+        group.set_header_suffix(
+            self._make_group_reset_button(
+                _("Reset recording settings"),
+                self._on_reset_recording,
+            )
+        )
 
         # Video codec
         vcodec_model = Gtk.StringList.new(["H.264", "H.265", "VP9", "MJPEG"])
@@ -530,14 +598,18 @@ class SettingsPage(Gtk.ScrolledWindow):
             title=_("Device"),
             subtitle=_("Not loaded"),
         )
-        self._vc_device_row.add_prefix(Gtk.Image.new_from_icon_name("video-display-symbolic"))
+        self._vc_device_row.add_prefix(
+            Gtk.Image.new_from_icon_name("video-display-symbolic")
+        )
         vc_group.add(self._vc_device_row)
 
         self._vc_toggle_row = Adw.SwitchRow(
             title=_("Enable virtual camera service"),
             subtitle=_("Master switch to allow virtual camera outputs."),
         )
-        self._vc_toggle_row.add_prefix(Gtk.Image.new_from_icon_name("camera-web-symbolic"))
+        self._vc_toggle_row.add_prefix(
+            Gtk.Image.new_from_icon_name("camera-web-symbolic")
+        )
         self._vc_toggle_row.connect("notify::active", self._on_vc_toggle)
         vc_group.add(self._vc_toggle_row)
 
@@ -546,10 +618,10 @@ class SettingsPage(Gtk.ScrolledWindow):
         # Per-device virtual camera group
         self._vc_devices_group = Adw.PreferencesGroup(
             title=_("Virtual Cameras"),
-            description=_("Select which cameras should output to a virtual device.")
+            description=_("Select which cameras should output to a virtual device."),
         )
         content.append(self._vc_devices_group)
-        
+
         if self._camera_manager:
             self._camera_manager.connect("cameras-changed", self._on_cameras_changed_vc)
 
@@ -561,7 +633,9 @@ class SettingsPage(Gtk.ScrolledWindow):
 
         max_adj = Gtk.Adjustment(
             value=val,
-            lower=1, upper=8, step_increment=1,
+            lower=1,
+            upper=8,
+            step_increment=1,
         )
         self._vc_max_row = Adw.SpinRow(
             title=_("Maximum virtual cameras"),
@@ -577,9 +651,13 @@ class SettingsPage(Gtk.ScrolledWindow):
             title=_("Device name"),
         )
         self._vc_name_row.set_text(self._settings.get("vcam-name-template"))
-        self._vc_name_row.add_prefix(Gtk.Image.new_from_icon_name("document-edit-symbolic"))
+        self._vc_name_row.add_prefix(
+            Gtk.Image.new_from_icon_name("document-edit-symbolic")
+        )
         self._vc_name_row.set_tooltip_text(
-            _("Name template for virtual cameras. Devices will be named '<name> 1', '<name> 2', etc.\nPress Enter or click ✓ to apply.")
+            _(
+                "Name template for virtual cameras. Devices will be named '<name> 1', '<name> 2', etc.\nPress Enter or click ✓ to apply."
+            )
         )
         self._vc_name_row.set_show_apply_button(True)
         self._vc_name_row.connect("apply", self._on_vcam_name_apply)
@@ -600,7 +678,9 @@ class SettingsPage(Gtk.ScrolledWindow):
             "light": Adw.ColorScheme.FORCE_LIGHT,
             "dark": Adw.ColorScheme.FORCE_DARK,
         }
-        style_manager.set_color_scheme(scheme_map.get(value, Adw.ColorScheme.FORCE_DARK))
+        style_manager.set_color_scheme(
+            scheme_map.get(value, Adw.ColorScheme.FORCE_DARK)
+        )
 
     def _on_mirror(self, row: Adw.SwitchRow, _pspec) -> None:
         active = row.get_active()
@@ -612,11 +692,34 @@ class SettingsPage(Gtk.ScrolledWindow):
         self._settings.set("prefer-v4l2", active)
         self.emit("prefer-v4l2-changed", active)
 
+    def _on_stabilization(self, row: object, _pspec: object) -> None:
+        try:
+            enabled = bool(self._stab_row.get_active())
+        except Exception:
+            enabled = False
+        self._settings.set("stabilization-enabled", enabled)
+        if self._engine:
+            try:
+                self._engine.enable_stabilization(enabled)
+            except Exception:
+                pass
+
+    def _on_stab_smoothing(self, scale: Gtk.Scale) -> None:
+        try:
+            val = int(scale.get_value())
+        except Exception:
+            val = 8
+        self._settings.set("stabilization-smoothing", val)
+        if self._engine:
+            try:
+                self._engine.set_stabilization_smoothing(val)
+            except Exception:
+                pass
+
     def _on_show_fps(self, row: Adw.SwitchRow, _pspec) -> None:
         active = row.get_active()
         self._settings.set("show_fps", active)
         self.emit("show-fps-changed", active)
-
 
     def _on_hotplug(self, row: Adw.SwitchRow, _pspec) -> None:
         self._settings.set("hotplug_enabled", row.get_active())
@@ -641,7 +744,7 @@ class SettingsPage(Gtk.ScrolledWindow):
             self._resource_row.set_active(True)
 
     def _on_resolution(self, row: Adw.ComboRow, _pspec) -> None:
-        if getattr(self, '_updating_formats', False):
+        if getattr(self, "_updating_formats", False):
             return
         idx = row.get_selected()
         value = self._res_values[idx] if idx < len(self._res_values) else ""
@@ -686,7 +789,7 @@ class SettingsPage(Gtk.ScrolledWindow):
         self.emit("fps-limit-changed", value)
 
     def _on_capture_timer(self, row: Adw.ComboRow, _pspec) -> None:
-        if getattr(self, '_syncing_timer', False):
+        if getattr(self, "_syncing_timer", False):
             return
         _TIMER_VALUES = [0, 3, 5, 10]
         idx = row.get_selected()
@@ -722,13 +825,12 @@ class SettingsPage(Gtk.ScrolledWindow):
         proc = subprocess.Popen(["xdg-open", path])
         # Avoid zombie: detach by waiting in a thread
         import threading
+
         threading.Thread(target=proc.wait, daemon=True).start()
 
     # -- Reset buttons -------------------------------------------------------
 
-    def _make_group_reset_button(
-        self, tooltip: str, callback
-    ) -> Gtk.Button:
+    def _make_group_reset_button(self, tooltip: str, callback) -> Gtk.Button:
         btn = Gtk.Button.new_from_icon_name("edit-undo-symbolic")
         btn.add_css_class("flat")
         btn.set_tooltip_text(_("Reset to defaults"))
@@ -740,7 +842,7 @@ class SettingsPage(Gtk.ScrolledWindow):
         return btn
 
     def _on_reset_general(self, _btn: Gtk.Button) -> None:
-        self._theme_row.set_selected(1)                # dark
+        self._theme_row.set_selected(1)  # dark
         self._hotplug_row.set_active(True)
         self._help_tooltips_row.set_active(True)
         self._resource_row.set_active(True)
@@ -755,14 +857,14 @@ class SettingsPage(Gtk.ScrolledWindow):
         self._v4l2_row.set_active(True)
 
     def _on_reset_camera(self, _btn: Gtk.Button) -> None:
-        self._res_combo.set_selected(0)                # Auto
-        self._fps_combo.set_selected(0)                # Auto
-        self._timer_row.set_selected(0)                # Off
+        self._res_combo.set_selected(0)  # Auto
+        self._fps_combo.set_selected(0)  # Auto
+        self._timer_row.set_selected(0)  # Off
 
     def _on_reset_recording(self, _btn: Gtk.Button) -> None:
-        self._vcodec_row.set_selected(0)               # H.264
-        self._acodec_row.set_selected(0)               # Opus
-        self._container_row.set_selected(0)            # MKV
+        self._vcodec_row.set_selected(0)  # H.264
+        self._acodec_row.set_selected(0)  # Opus
+        self._container_row.set_selected(0)  # MKV
         self._bitrate_row.get_adjustment().set_value(8000)
 
     # -- QR Code handlers ----------------------------------------------------
@@ -845,7 +947,9 @@ class SettingsPage(Gtk.ScrolledWindow):
             if not data:
                 h, w = frame.shape[:2]
                 if max(h, w) < 1000:
-                    upscaled = cv2.resize(frame, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+                    upscaled = cv2.resize(
+                        frame, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC
+                    )
                     data, points = self._try_detect_qr(upscaled)
                     if points is not None:
                         points = points / 2
@@ -926,9 +1030,13 @@ class SettingsPage(Gtk.ScrolledWindow):
             try:
                 if not available:
                     if kstatus == "kernel_mismatch":
-                        self._vc_status_row.set_subtitle(_("Reboot required (kernel updated)"))
+                        self._vc_status_row.set_subtitle(
+                            _("Reboot required (kernel updated)")
+                        )
                     else:
-                        self._vc_status_row.set_subtitle(_("v4l2loopback not available"))
+                        self._vc_status_row.set_subtitle(
+                            _("v4l2loopback not available")
+                        )
                     self._vc_status_icon.set_from_icon_name("dialog-warning-symbolic")
                     self._vc_toggle_row.set_sensitive(False)
                     return
@@ -944,13 +1052,16 @@ class SettingsPage(Gtk.ScrolledWindow):
                     self._vc_toggle_row.set_active(False)
                 else:
                     self._vc_status_row.set_subtitle(_("Module not loaded"))
-                    self._vc_status_icon.set_from_icon_name("dialog-information-symbolic")
+                    self._vc_status_icon.set_from_icon_name(
+                        "dialog-information-symbolic"
+                    )
                     self._vc_device_row.set_subtitle(_("Not loaded"))
                     self._vc_toggle_row.set_active(False)
             finally:
                 self._vc_updating = False
 
         from utils.async_worker import run_async
+
         run_async(_query, on_success=_update)
 
     def _on_cameras_changed_vc(self, cm) -> None:
@@ -960,7 +1071,7 @@ class SettingsPage(Gtk.ScrolledWindow):
         self._vc_device_rows = []
 
         disabled_cams = self._settings.get("vcam-disabled-cameras", [])
-        
+
         if not cm.cameras:
             empty = Adw.ActionRow(title=_("No cameras connected"))
             self._vc_devices_group.add(empty)
@@ -969,9 +1080,7 @@ class SettingsPage(Gtk.ScrolledWindow):
 
         for cam in cm.cameras:
             row = Adw.SwitchRow(
-                title=cam.name,
-                subtitle=cam.id,
-                active=(cam.id not in disabled_cams)
+                title=cam.name, subtitle=cam.id, active=(cam.id not in disabled_cams)
             )
             row.connect("notify::active", self._on_vc_device_toggle, cam.id)
             self._vc_devices_group.add(row)
@@ -980,7 +1089,7 @@ class SettingsPage(Gtk.ScrolledWindow):
     def _on_vc_device_toggle(self, row: Adw.SwitchRow, _pspec, camera_id: str) -> None:
         active = row.get_active()
         disabled_cams = self._settings.get("vcam-disabled-cameras", [])
-        
+
         if active and camera_id in disabled_cams:
             disabled_cams.remove(camera_id)
             self._settings.set("vcam-disabled-cameras", disabled_cams)

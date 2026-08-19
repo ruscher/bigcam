@@ -118,7 +118,9 @@ class SettingsManager:
                 with open(self._path, "r", encoding="utf-8") as fh:
                     self._data = json.load(fh)
             except Exception:
-                log.warning("Failed to load settings from %s", self._path, exc_info=True)
+                log.warning(
+                    "Failed to load settings from %s", self._path, exc_info=True
+                )
                 self._data = {}
 
     def _save(self) -> None:

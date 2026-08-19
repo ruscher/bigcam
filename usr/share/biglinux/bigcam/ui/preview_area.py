@@ -277,9 +277,7 @@ class PreviewArea(Gtk.Overlay):
         outer.add_css_class("audio-overlay")
 
         # Top row: checkboxes + mute icon
-        top_row = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL, spacing=2
-        )
+        top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
         top_row.set_valign(Gtk.Align.CENTER)
 
         self._audio_checks_box = Gtk.Box(
@@ -287,15 +285,11 @@ class PreviewArea(Gtk.Overlay):
         )
         top_row.append(self._audio_checks_box)
 
-        self._mute_btn = Gtk.Button.new_from_icon_name(
-            "audio-volume-medium-symbolic"
-        )
+        self._mute_btn = Gtk.Button.new_from_icon_name("audio-volume-medium-symbolic")
         self._mute_btn.add_css_class("circular")
         self._mute_btn.add_css_class("audio-overlay-btn")
         self._mute_btn.set_tooltip_text(_("Mute"))
-        self._mute_btn.update_property(
-            [Gtk.AccessibleProperty.LABEL], [_("Mute")]
-        )
+        self._mute_btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Mute")])
         self._mute_btn.connect("clicked", self._on_mute_clicked)
         top_row.append(self._mute_btn)
 
@@ -360,9 +354,7 @@ class PreviewArea(Gtk.Overlay):
 
         for idx, (src_name, label) in enumerate(sources, start=1):
             # -- Checkbox item container (vertical: checkbox on top, slider below) --
-            item_box = Gtk.Box(
-                orientation=Gtk.Orientation.VERTICAL, spacing=0
-            )
+            item_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
             item_box.add_css_class("audio-source-item")
 
             check = Gtk.CheckButton(label=str(idx))
@@ -378,9 +370,7 @@ class PreviewArea(Gtk.Overlay):
             self._audio_checks_box.append(item_box)
 
             # -- Vertical volume slider (in sliders box, aligned under checkbox) --
-            slider_container = Gtk.Box(
-                orientation=Gtk.Orientation.VERTICAL, spacing=2
-            )
+            slider_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
             slider_container.add_css_class("audio-vol-slider-container")
             slider_container.set_halign(Gtk.Align.CENTER)
 
@@ -437,10 +427,8 @@ class PreviewArea(Gtk.Overlay):
         """Hide volume sliders when mouse leaves the audio overlay."""
         self._vol_sliders_box.set_visible(False)
 
-    def _on_audio_check_toggled(
-        self, check: Gtk.CheckButton, source_name: str
-    ) -> None:
-        if not self._audio_monitor or getattr(self, '_audio_rebuilding', False):
+    def _on_audio_check_toggled(self, check: Gtk.CheckButton, source_name: str) -> None:
+        if not self._audio_monitor or getattr(self, "_audio_rebuilding", False):
             return
         is_active = self._audio_monitor.is_active(source_name)
         want_active = check.get_active()
@@ -463,9 +451,7 @@ class PreviewArea(Gtk.Overlay):
         if self._audio_monitor:
             self._audio_monitor.toggle_mute()
 
-    def _on_source_vol_changed(
-        self, scale: Gtk.Scale, source_name: str
-    ) -> None:
+    def _on_source_vol_changed(self, scale: Gtk.Scale, source_name: str) -> None:
         """Handle per-source vertical volume slider change."""
         if self._audio_monitor:
             self._audio_monitor.set_source_volume(source_name, scale.get_value())

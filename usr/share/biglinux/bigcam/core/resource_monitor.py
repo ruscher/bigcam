@@ -22,9 +22,11 @@ log = logging.getLogger(__name__)
 # Snapshot of resource usage
 # ---------------------------------------------------------------------------
 
+
 @dataclass(slots=True)
 class ResourceSnapshot:
     """Point-in-time resource usage."""
+
     rss_mb: float = 0.0
     cpu_percent: float = 0.0
     timestamp: float = field(default_factory=time.monotonic)
@@ -34,16 +36,18 @@ class ResourceSnapshot:
 # Feature descriptor
 # ---------------------------------------------------------------------------
 
+
 @dataclass(slots=True)
 class FeatureDescriptor:
     """Metadata for a feature that may consume significant resources."""
+
     feature_id: str
     label: str
     description: str
     is_active: Callable[[], bool]
     disable: Callable[[], None]
     # Approximate overhead when active (used for suggestions)
-    estimated_cpu: float = 0.0   # percent
+    estimated_cpu: float = 0.0  # percent
     estimated_ram_mb: float = 0.0
     # When False the feature is shown for informational purposes only
     # and cannot be disabled (e.g. active camera sources).
@@ -149,7 +153,9 @@ class ResourceMonitor(GObject.Object):
         self._timer_id = GLib.timeout_add_seconds(self._interval, self._tick)
         log.info(
             "ResourceMonitor started (RAM>%.0f MB, CPU>%.0f%%, every %ds)",
-            self._ram_threshold, self._cpu_threshold, self._interval,
+            self._ram_threshold,
+            self._cpu_threshold,
+            self._interval,
         )
 
     def stop(self) -> None:
@@ -193,8 +199,7 @@ class ResourceMonitor(GObject.Object):
         self.emit("snapshot", snap)
 
         over_limit = (
-            snap.rss_mb > self._ram_threshold
-            or snap.cpu_percent > self._cpu_threshold
+            snap.rss_mb > self._ram_threshold or snap.cpu_percent > self._cpu_threshold
         )
         now = time.monotonic()
 
@@ -225,9 +230,7 @@ class ResourceMonitor(GObject.Object):
     def _active_features(self) -> list[FeatureDescriptor]:
         """Return active features sorted by estimated cost (highest first)."""
         active = [f for f in self._features.values() if f.is_active()]
-        active.sort(
-            key=lambda f: f.estimated_cpu + f.estimated_ram_mb, reverse=True
-        )
+        active.sort(key=lambda f: f.estimated_cpu + f.estimated_ram_mb, reverse=True)
         return active
 
     # -- /proc reading -------------------------------------------------------

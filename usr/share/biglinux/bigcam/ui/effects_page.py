@@ -15,6 +15,7 @@ from core.effects import EffectPipeline, EffectInfo, EffectCategory, EffectParam
 from utils.i18n import _
 
 import logging
+
 log = logging.getLogger(__name__)
 
 

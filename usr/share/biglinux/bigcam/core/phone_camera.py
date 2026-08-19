@@ -491,12 +491,15 @@ if _HAS_QUIC:
                     and headers.get(b":protocol") == b"webtransport"
                 ):
                     import urllib.parse
+
                     path = headers.get(b":path", b"").decode("utf-8", errors="ignore")
                     parsed = urllib.parse.urlparse(path)
                     qs = urllib.parse.parse_qs(parsed.query)
                     token = qs.get("token", [""])[0]
-                    
-                    if not token or not secrets.compare_digest(token, self._phone._token):
+
+                    if not token or not secrets.compare_digest(
+                        token, self._phone._token
+                    ):
                         self._h3.send_headers(
                             stream_id=event.stream_id,
                             headers=[(b":status", b"401")],
@@ -521,9 +524,7 @@ if _HAS_QUIC:
                 if event.stream_ended:
                     data = bytes(self._stream_bufs.pop(sid))
                     if data:
-                        asyncio.ensure_future(
-                            self._phone._decode_and_emit_frame(data)
-                        )
+                        asyncio.ensure_future(self._phone._decode_and_emit_frame(data))
 
             elif isinstance(event, DatagramReceived):
                 # Audio packets: first byte 0x01, rest is PCM S16LE
@@ -617,13 +618,24 @@ class PhoneCameraServer(GObject.Object):
         try:
             self._audio_proc = subprocess.Popen(
                 [
-                    "gst-launch-1.0", "-q",
-                    "fdsrc", "fd=0", "blocksize=4096",
-                    "!", "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved",
-                    "!", "queue", "max-size-time=50000000", "leaky=downstream",
-                    "!", "audioconvert",
-                    "!", "audioresample",
-                    "!", "autoaudiosink", "sync=false",
+                    "gst-launch-1.0",
+                    "-q",
+                    "fdsrc",
+                    "fd=0",
+                    "blocksize=4096",
+                    "!",
+                    "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved",
+                    "!",
+                    "queue",
+                    "max-size-time=50000000",
+                    "leaky=downstream",
+                    "!",
+                    "audioconvert",
+                    "!",
+                    "audioresample",
+                    "!",
+                    "autoaudiosink",
+                    "sync=false",
                 ],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.DEVNULL,
@@ -681,7 +693,10 @@ class PhoneCameraServer(GObject.Object):
         """
         self._audio_queue.append(pcm_data)
         if not self._audio_started:
-            log.info("First audio packet (%d bytes), starting audio subprocess", len(pcm_data))
+            log.info(
+                "First audio packet (%d bytes), starting audio subprocess",
+                len(pcm_data),
+            )
             GLib.idle_add(self._start_audio_pipeline)
 
     def _audio_drain_loop(self) -> None:
@@ -693,6 +708,7 @@ class PhoneCameraServer(GObject.Object):
         """
         try:
             import numpy as np
+
             _has_np = True
         except ImportError:
             _has_np = False
@@ -808,7 +824,10 @@ class PhoneCameraServer(GObject.Object):
             self._loop.run_forever()
         except OSError as exc:
             log.error("Phone camera server failed: %s", exc)
-            if "address already in use" in str(exc).lower() or getattr(exc, 'errno', 0) == 98:
+            if (
+                "address already in use" in str(exc).lower()
+                or getattr(exc, "errno", 0) == 98
+            ):
                 self._start_error = _("Port %d is already in use") % self._port
             else:
                 self._start_error = str(exc)
@@ -853,7 +872,9 @@ class PhoneCameraServer(GObject.Object):
                         *a, phone_server=phone_ref, **kw
                     ),
                 )
-                log.info("QUIC/WebTransport server listening on port %d (UDP)", self._port)
+                log.info(
+                    "QUIC/WebTransport server listening on port %d (UDP)", self._port
+                )
             except Exception as exc:
                 log.warning("QUIC server failed to start: %s", exc)
 
@@ -870,11 +891,15 @@ class PhoneCameraServer(GObject.Object):
     async def _handle_index(self, request: web.Request) -> web.Response:
         if not self._verify_token(request):
             return web.Response(status=401, text="Unauthorized")
-            
+
         # Inject cert hash and QUIC availability into the HTML page
         html = _PHONE_HTML.replace(
             "/*CERT_HASH*/",
-            f"const CERT_HASH='{self._cert_hash_b64}';" if self._cert_hash_b64 else "const CERT_HASH='';",
+            (
+                f"const CERT_HASH='{self._cert_hash_b64}';"
+                if self._cert_hash_b64
+                else "const CERT_HASH='';"
+            ),
         ).replace(
             "/*HAS_QUIC*/",
             "const HAS_QUIC=true;" if self._quic_server else "const HAS_QUIC=false;",
@@ -885,7 +910,7 @@ class PhoneCameraServer(GObject.Object):
         """HTTP POST fallback for browsers that reject WSS with self-signed certs (Safari/iOS)."""
         if not self._verify_token(request):
             return web.Response(status=401, text="Unauthorized")
-            
+
         try:
             import cv2
             import numpy as np
@@ -943,7 +968,7 @@ class PhoneCameraServer(GObject.Object):
     async def _handle_ws(self, request: web.Request) -> web.WebSocketResponse:
         if not self._verify_token(request):
             raise web.HTTPUnauthorized(text="Unauthorized")
-        
+
         ws = web.WebSocketResponse(max_msg_size=10 * 1024 * 1024)
         await ws.prepare(request)
         self._ws_clients.add(ws)
@@ -1036,6 +1061,7 @@ def _ensure_cert() -> None:
     os.makedirs(_CERT_DIR, exist_ok=True)
     # Write to temp files first to avoid partial cert on crash/race
     import tempfile
+
     tmp_key = tmp_cert = ""
     try:
         fd_key, tmp_key = tempfile.mkstemp(dir=_CERT_DIR, suffix=".key.tmp")

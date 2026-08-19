@@ -195,9 +195,7 @@ class VideoGallery(Gtk.Box):
 
     def _update_sel_label(self) -> None:
         n = len(self._selected)
-        self._sel_label.set_label(
-            _("%d selected") % n if n else _("0 selected")
-        )
+        self._sel_label.set_label(_("%d selected") % n if n else _("0 selected"))
 
     # ── Mapped / refresh ─────────────────────────────────────────────
 
@@ -274,7 +272,9 @@ class VideoGallery(Gtk.Box):
     # ── Grid item ────────────────────────────────────────────────────
 
     def _make_grid_item(self, m: _VideoMeta) -> Gtk.Widget | None:
-        pixbuf = self._load_pixbuf(m.thumb_path, self.THUMB_SIZE) if m.thumb_path else None
+        pixbuf = (
+            self._load_pixbuf(m.thumb_path, self.THUMB_SIZE) if m.thumb_path else None
+        )
 
         if pixbuf:
             texture = Gdk.Texture.new_for_pixbuf(pixbuf)
@@ -367,7 +367,9 @@ class VideoGallery(Gtk.Box):
         row.set_activatable(not self._selection_mode)
 
         # Small thumbnail prefix
-        pixbuf = self._load_pixbuf(m.thumb_path, self.LIST_THUMB) if m.thumb_path else None
+        pixbuf = (
+            self._load_pixbuf(m.thumb_path, self.LIST_THUMB) if m.thumb_path else None
+        )
         if pixbuf:
             texture = Gdk.Texture.new_for_pixbuf(pixbuf)
             pic = Gtk.Picture.new_for_paintable(texture)
@@ -386,7 +388,9 @@ class VideoGallery(Gtk.Box):
             check.set_valign(Gtk.Align.CENTER)
             check.connect("toggled", self._on_check_toggled, m.path)
             row.add_suffix(check)
-            row.connect("activated", lambda _r, c=check: c.set_active(not c.get_active()))
+            row.connect(
+                "activated", lambda _r, c=check: c.set_active(not c.get_active())
+            )
         else:
             row.connect("activated", self._on_row_activated, m.path)
             del_btn = Gtk.Button.new_from_icon_name("user-trash-symbolic")
@@ -459,9 +463,7 @@ class VideoGallery(Gtk.Box):
         basename = os.path.splitext(os.path.basename(video_path))[0]
         return os.path.join(thumbs, f"{basename}.jpg")
 
-    def _load_pixbuf(
-        self, path: str | None, size: int
-    ) -> GdkPixbuf.Pixbuf | None:
+    def _load_pixbuf(self, path: str | None, size: int) -> GdkPixbuf.Pixbuf | None:
         if not path or not os.path.isfile(path):
             return None
         try:
@@ -471,12 +473,27 @@ class VideoGallery(Gtk.Box):
 
     def _generate_thumb_file(self, video_path: str, thumb_path: str) -> None:
         try:
+            # Keep the generated thumbnail square and centered, matching the photo
+            # gallery behavior instead of stretching portrait videos vertically.
+            vf = (
+                f"scale='if(gt(iw,ih),{self.THUMB_SIZE},-1)':'if(gt(iw,ih),-1,{self.THUMB_SIZE})', "
+                f"pad={self.THUMB_SIZE}:{self.THUMB_SIZE}:(ow-iw)/2:(oh-ih)/2:black"
+            )
             subprocess.run(
                 [
-                    "ffmpeg", "-y", "-i", video_path,
-                    "-ss", "00:00:01", "-frames:v", "1",
-                    "-vf", f"scale={self.THUMB_SIZE}:-1",
-                    "-q:v", "5", thumb_path,
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    video_path,
+                    "-ss",
+                    "00:00:01",
+                    "-frames:v",
+                    "1",
+                    "-vf",
+                    vf,
+                    "-q:v",
+                    "5",
+                    thumb_path,
                 ],
                 capture_output=True,
                 timeout=10,
@@ -488,9 +505,13 @@ class VideoGallery(Gtk.Box):
         try:
             result = subprocess.run(
                 [
-                    "ffprobe", "-v", "error",
-                    "-show_entries", "format=duration",
-                    "-of", "default=noprint_wrappers=1:nokey=1",
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=noprint_wrappers=1:nokey=1",
                     path,
                 ],
                 capture_output=True,

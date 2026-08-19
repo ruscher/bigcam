@@ -309,14 +309,16 @@ class PhoneCameraDialog(Adw.Dialog):
         self._usb_inline_status.set_visible(False)
         content.append(self._usb_inline_status)
 
-        content.append(self._build_start_stop_pair(
-            start_label=_("Start"),
-            stop_label=_("Stop"),
-            start_cb=self._on_usb_start,
-            stop_cb=self._on_usb_stop,
-            ref_prefix="_usb",
-            info_tab="usb",
-        ))
+        content.append(
+            self._build_start_stop_pair(
+                start_label=_("Start"),
+                stop_label=_("Stop"),
+                start_cb=self._on_usb_start,
+                stop_cb=self._on_usb_stop,
+                ref_prefix="_usb",
+                info_tab="usb",
+            )
+        )
 
         # Initial device scan
         GLib.idle_add(self._on_refresh_usb_devices, None)
@@ -513,14 +515,16 @@ class PhoneCameraDialog(Adw.Dialog):
         self._scrcpy_inline_status.set_visible(False)
         content.append(self._scrcpy_inline_status)
 
-        content.append(self._build_start_stop_pair(
-            start_label=_("Start"),
-            stop_label=_("Stop"),
-            start_cb=self._on_scrcpy_start,
-            stop_cb=self._on_scrcpy_stop,
-            ref_prefix="_scrcpy",
-            info_tab="wifi",
-        ))
+        content.append(
+            self._build_start_stop_pair(
+                start_label=_("Start"),
+                stop_label=_("Stop"),
+                start_cb=self._on_scrcpy_start,
+                stop_cb=self._on_scrcpy_stop,
+                ref_prefix="_scrcpy",
+                info_tab="wifi",
+            )
+        )
 
         # Trigger initial device refresh
         GLib.idle_add(self._on_refresh_devices, None)
@@ -583,9 +587,7 @@ class PhoneCameraDialog(Adw.Dialog):
         quality_group = Adw.PreferencesGroup()
 
         self._airplay_res_row = Adw.ComboRow(title=_("Quality"))
-        self._airplay_res_row.set_model(
-            Gtk.StringList.new(["720p", "1080p", "1440p"])
-        )
+        self._airplay_res_row.set_model(Gtk.StringList.new(["720p", "1080p", "1440p"]))
         self._airplay_res_row.set_selected(1)
         air_qual_icon = Gtk.Image.new_from_icon_name("video-display-symbolic")
         air_qual_icon.set_valign(Gtk.Align.CENTER)
@@ -601,12 +603,14 @@ class PhoneCameraDialog(Adw.Dialog):
 
         self._airplay_rotate_row = Adw.ComboRow(title=_("Rotation"))
         self._airplay_rotate_row.set_model(
-            Gtk.StringList.new([
-                _("None"),
-                _("90° Right"),
-                _("90° Left"),
-                _("180°"),
-            ])
+            Gtk.StringList.new(
+                [
+                    _("None"),
+                    _("90° Right"),
+                    _("90° Left"),
+                    _("180°"),
+                ]
+            )
         )
         air_rot_icon = Gtk.Image.new_from_icon_name("view-refresh-symbolic")
         air_rot_icon.set_valign(Gtk.Align.CENTER)
@@ -617,14 +621,16 @@ class PhoneCameraDialog(Adw.Dialog):
 
         # ── Spacer + Start ───────────────────────────────────────────
         content.append(Gtk.Box(vexpand=True))
-        content.append(self._build_start_stop_pair(
-            start_label=_("Start"),
-            stop_label=_("Stop"),
-            start_cb=self._on_airplay_start,
-            stop_cb=self._on_airplay_stop,
-            ref_prefix="_airplay",
-            info_tab="airplay",
-        ))
+        content.append(
+            self._build_start_stop_pair(
+                start_label=_("Start"),
+                stop_label=_("Stop"),
+                start_cb=self._on_airplay_start,
+                stop_cb=self._on_airplay_stop,
+                ref_prefix="_airplay",
+                info_tab="airplay",
+            )
+        )
 
         clamp.set_child(content)
         scroll.set_child(clamp)
@@ -653,15 +659,11 @@ class PhoneCameraDialog(Adw.Dialog):
         # ── Availability check ───────────────────────────────────────
         self._wifi_available = PhoneCameraServer.available()
         if not self._wifi_available:
-            content.append(
-                self._make_missing_banner_raw(["python-aiohttp"])
-            )
+            content.append(self._make_missing_banner_raw(["python-aiohttp"]))
 
         # ── QR Code area ─────────────────────────────────────────────
         qr_group = Adw.PreferencesGroup(
-            description=_(
-                "Open this URL in any phone browser to stream the camera"
-            ),
+            description=_("Open this URL in any phone browser to stream the camera"),
         )
 
         self._qr_picture = Gtk.Picture()
@@ -729,14 +731,16 @@ class PhoneCameraDialog(Adw.Dialog):
         self._wifi_inline_status.set_visible(False)
         content.append(self._wifi_inline_status)
 
-        content.append(self._build_start_stop_pair(
-            start_label=_("Start"),
-            stop_label=_("Stop"),
-            start_cb=self._on_wifi_start,
-            stop_cb=self._on_wifi_stop,
-            ref_prefix="_wifi",
-            info_tab="browser",
-        ))
+        content.append(
+            self._build_start_stop_pair(
+                start_label=_("Start"),
+                stop_label=_("Stop"),
+                start_cb=self._on_wifi_start,
+                stop_cb=self._on_wifi_stop,
+                ref_prefix="_wifi",
+                info_tab="browser",
+            )
+        )
 
         clamp.set_child(content)
         scroll.set_child(clamp)
@@ -813,9 +817,7 @@ class PhoneCameraDialog(Adw.Dialog):
     @staticmethod
     def _make_missing_banner_raw(missing: list[str]) -> Gtk.Widget:
         banner = Adw.Banner()
-        banner.set_title(
-            _("Install required: %s") % ", ".join(missing)
-        )
+        banner.set_title(_("Install required: %s") % ", ".join(missing))
         banner.set_revealed(True)
         banner.set_button_label("")
         return banner
@@ -833,7 +835,9 @@ class PhoneCameraDialog(Adw.Dialog):
     #  INFO DIALOG
     # ══════════════════════════════════════════════════════════════════
 
-    def _on_info_clicked(self, _btn: Gtk.Button | None = None, tab_override: str = "") -> None:
+    def _on_info_clicked(
+        self, _btn: Gtk.Button | None = None, tab_override: str = ""
+    ) -> None:
         dialog = Adw.Dialog()
         dialog.set_title(_("How to connect your phone"))
         dialog.set_content_width(520)
@@ -911,19 +915,26 @@ class PhoneCameraDialog(Adw.Dialog):
         brw_clamp = Adw.Clamp(maximum_size=460, tightening_threshold=360)
         brw_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
-            spacing=16, margin_top=4, margin_bottom=24,
-            margin_start=16, margin_end=16,
+            spacing=16,
+            margin_top=4,
+            margin_bottom=24,
+            margin_start=16,
+            margin_end=16,
         )
-        brw_box.append(_section_header(
-            "web-browser-symbolic",
-            _("Browser (Android / iPhone)"),
-            _("Works with any phone, no app required."),
-        ))
+        brw_box.append(
+            _section_header(
+                "web-browser-symbolic",
+                _("Browser (Android / iPhone)"),
+                _("Works with any phone, no app required."),
+            )
+        )
 
         brw_group = Adw.PreferencesGroup()
         brw_group.add(_step_row(1, _("Connect both devices to the same Wi-Fi network")))
         brw_group.add(_step_row(2, _("Click 'Start' on the Browser tab")))
-        brw_group.add(_step_row(3, _("Scan the QR code with your phone or type the URL")))
+        brw_group.add(
+            _step_row(3, _("Scan the QR code with your phone or type the URL"))
+        )
         brw_group.add(_step_row(4, _("Accept the security warning in the browser")))
         brw_group.add(_step_row(5, _("Tap 'Start' on the phone's browser page")))
         brw_box.append(brw_group)
@@ -942,34 +953,55 @@ class PhoneCameraDialog(Adw.Dialog):
         wifi_clamp = Adw.Clamp(maximum_size=460, tightening_threshold=360)
         wifi_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
-            spacing=16, margin_top=4, margin_bottom=24,
-            margin_start=16, margin_end=16,
+            spacing=16,
+            margin_top=4,
+            margin_bottom=24,
+            margin_start=16,
+            margin_end=16,
         )
-        wifi_box.append(_section_header(
-            "symbolic-phone-android",
-            _("Wi-Fi (Android 11+)"),
-            _("No cable needed after the first setup."),
-        ))
+        wifi_box.append(
+            _section_header(
+                "symbolic-phone-android",
+                _("Wi-Fi (Android 11+)"),
+                _("No cable needed after the first setup."),
+            )
+        )
 
         wifi_tip_group = Adw.PreferencesGroup(title=_("Quick method"))
-        wifi_tip_group.add(_tip_row(
-            _("If connected via USB, use the wireless icon on the "
-              "device selector to switch to Wi-Fi instantly.")
-        ))
+        wifi_tip_group.add(
+            _tip_row(
+                _(
+                    "If connected via USB, use the wireless icon on the "
+                    "device selector to switch to Wi-Fi instantly."
+                )
+            )
+        )
         wifi_box.append(wifi_tip_group)
 
         wifi_pair_group = Adw.PreferencesGroup(
             title=_("First-time pairing (without USB)")
         )
-        wifi_pair_group.add(_step_row(1, _("Enable Developer Options (same steps as USB above)")))
-        wifi_pair_group.add(_step_row(2, _("Go to Settings → Developer Options → Wireless Debugging")))
+        wifi_pair_group.add(
+            _step_row(1, _("Enable Developer Options (same steps as USB above)"))
+        )
+        wifi_pair_group.add(
+            _step_row(2, _("Go to Settings → Developer Options → Wireless Debugging"))
+        )
         wifi_pair_group.add(_step_row(3, _("Tap 'Pair device with pairing code'")))
         wifi_pair_group.add(_warn_row(_("Use 'pairing CODE', NOT 'QR Code'")))
-        wifi_pair_group.add(_step_row(4, _("Note the IP:Port and 6-digit code shown on the phone")))
-        wifi_pair_group.add(_step_row(5, _("On the Wi-Fi tab, expand 'Pair new device'")))
-        wifi_pair_group.add(_step_row(6, _("Type the IP:Port and code, then tap 'Pair'")))
+        wifi_pair_group.add(
+            _step_row(4, _("Note the IP:Port and 6-digit code shown on the phone"))
+        )
+        wifi_pair_group.add(
+            _step_row(5, _("On the Wi-Fi tab, expand 'Pair new device'"))
+        )
+        wifi_pair_group.add(
+            _step_row(6, _("Type the IP:Port and code, then tap 'Pair'"))
+        )
         wifi_pair_group.add(_tip_row(_("Or tap 'Find' to auto-fill the IP:Port")))
-        wifi_pair_group.add(_step_row(7, _("After pairing, tap 'Scan' to find the device")))
+        wifi_pair_group.add(
+            _step_row(7, _("After pairing, tap 'Scan' to find the device"))
+        )
         wifi_pair_group.add(_step_row(8, _("Click 'Start' on the Wi-Fi tab")))
         wifi_box.append(wifi_pair_group)
 
@@ -987,21 +1019,36 @@ class PhoneCameraDialog(Adw.Dialog):
         usb_clamp = Adw.Clamp(maximum_size=460, tightening_threshold=360)
         usb_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
-            spacing=16, margin_top=4, margin_bottom=24,
-            margin_start=16, margin_end=16,
+            spacing=16,
+            margin_top=4,
+            margin_bottom=24,
+            margin_start=16,
+            margin_end=16,
         )
-        usb_box.append(_section_header(
-            "symbolic-phone-android",
-            _("USB (Android)"),
-            _("The easiest and fastest method."),
-        ))
+        usb_box.append(
+            _section_header(
+                "symbolic-phone-android",
+                _("USB (Android)"),
+                _("The easiest and fastest method."),
+            )
+        )
 
         usb_group = Adw.PreferencesGroup()
-        usb_group.add(_step_row(1, _("On your Android phone, go to Settings → About Phone")))
-        usb_group.add(_step_row(2, _("Tap 'Build Number' 7 times to unlock Developer Options")))
-        usb_group.add(_step_row(3, _("Go to Settings → Developer Options → enable 'USB Debugging'")))
+        usb_group.add(
+            _step_row(1, _("On your Android phone, go to Settings → About Phone"))
+        )
+        usb_group.add(
+            _step_row(2, _("Tap 'Build Number' 7 times to unlock Developer Options"))
+        )
+        usb_group.add(
+            _step_row(
+                3, _("Go to Settings → Developer Options → enable 'USB Debugging'")
+            )
+        )
         usb_group.add(_step_row(4, _("Connect the USB cable to the computer")))
-        usb_group.add(_step_row(5, _("Accept the USB Debugging prompt on the phone screen")))
+        usb_group.add(
+            _step_row(5, _("Accept the USB Debugging prompt on the phone screen"))
+        )
         usb_group.add(_step_row(6, _("Click 'Start' on the USB tab")))
         usb_box.append(usb_group)
 
@@ -1019,19 +1066,30 @@ class PhoneCameraDialog(Adw.Dialog):
         air_clamp = Adw.Clamp(maximum_size=460, tightening_threshold=360)
         air_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
-            spacing=16, margin_top=4, margin_bottom=24,
-            margin_start=16, margin_end=16,
+            spacing=16,
+            margin_top=4,
+            margin_bottom=24,
+            margin_start=16,
+            margin_end=16,
         )
-        air_box.append(_section_header(
-            "symbolic-phone-apple",
-            _("AirPlay (iPhone / iPad)"),
-            _("Mirrors the entire screen (not just the camera)."),
-        ))
+        air_box.append(
+            _section_header(
+                "symbolic-phone-apple",
+                _("AirPlay (iPhone / iPad)"),
+                _("Mirrors the entire screen (not just the camera)."),
+            )
+        )
 
         air_group = Adw.PreferencesGroup()
-        air_group.add(_step_row(1, _("Make sure both devices are on the same Wi-Fi network")))
+        air_group.add(
+            _step_row(1, _("Make sure both devices are on the same Wi-Fi network"))
+        )
         air_group.add(_step_row(2, _("Click 'Start' on the AirPlay tab")))
-        air_group.add(_step_row(3, _("On your iPhone, open Control Center (swipe down from top-right)")))
+        air_group.add(
+            _step_row(
+                3, _("On your iPhone, open Control Center (swipe down from top-right)")
+            )
+        )
         air_group.add(_step_row(4, _("Tap 'Screen Mirroring' and select 'BigCam'")))
         air_box.append(air_group)
 
@@ -1066,7 +1124,8 @@ class PhoneCameraDialog(Adw.Dialog):
     # ══════════════════════════════════════════════════════════════════
 
     def _sync_tabs_state(self) -> None:
-        if self._closed: return
+        if self._closed:
+            return
         self._tab_pages[_TAB_BROWSER].set_needs_attention(self._server.running)
         self._tab_pages[_TAB_USB].set_needs_attention(self._scrcpy_usb.running)
         self._tab_pages[_TAB_WIFI_ADV].set_needs_attention(self._scrcpy_wifi.running)
@@ -1110,8 +1169,18 @@ class PhoneCameraDialog(Adw.Dialog):
         if shutil.which("qrencode"):
             try:
                 subprocess.run(
-                    ["qrencode", "-o", qr_path, "-s", "6", "-m", "2",
-                     "--foreground=000000", "--background=FFFFFF", url],
+                    [
+                        "qrencode",
+                        "-o",
+                        qr_path,
+                        "-s",
+                        "6",
+                        "-m",
+                        "2",
+                        "--foreground=000000",
+                        "--background=FFFFFF",
+                        url,
+                    ],
                     timeout=5,
                     capture_output=True,
                 )
@@ -1121,6 +1190,7 @@ class PhoneCameraDialog(Adw.Dialog):
 
         try:
             import qrcode
+
             img = qrcode.make(url, box_size=6, border=2)
             buf = io.BytesIO()
             img.save(buf, format="PNG")
@@ -1212,7 +1282,7 @@ class PhoneCameraDialog(Adw.Dialog):
             self._airplay_stop_btn.set_visible(True)
             self._set_dot_color(0.2, 0.78, 0.35)
             self._set_status(_("AirPlay connected"))
-            
+
         self._sync_tabs_state()
 
     # ══════════════════════════════════════════════════════════════════
@@ -1256,9 +1326,7 @@ class PhoneCameraDialog(Adw.Dialog):
                 self._wifi_start_btn.set_sensitive(True)
                 self._wifi_inline_status.remove_css_class("dim-label")
                 self._wifi_inline_status.add_css_class("error")
-                self._wifi_inline_status.set_label(
-                    msg or _("Failed to start server")
-                )
+                self._wifi_inline_status.set_label(msg or _("Failed to start server"))
                 self._set_dot_color(0.85, 0.2, 0.2)
                 self._set_status(_("Failed to start server"))
 
@@ -1309,9 +1377,7 @@ class PhoneCameraDialog(Adw.Dialog):
         if url:
             self._copy_to_clipboard(url)
 
-    def _on_wifi_connected(
-        self, _server: PhoneCameraServer, w: int, h: int
-    ) -> None:
+    def _on_wifi_connected(self, _server: PhoneCameraServer, w: int, h: int) -> None:
         self._set_dot_color(0.2, 0.78, 0.35)
         self._set_status(_("Connected via browser"))
         self._set_resolution(w, h)
@@ -1327,9 +1393,7 @@ class PhoneCameraDialog(Adw.Dialog):
         self._set_resolution(0, 0)
         self.emit("phone-disconnected")
 
-    def _on_wifi_status_changed(
-        self, _server: PhoneCameraServer, status: str
-    ) -> None:
+    def _on_wifi_status_changed(self, _server: PhoneCameraServer, status: str) -> None:
         if status == "listening":
             self._set_dot_color(1.0, 0.76, 0.03)
             self._set_status(_("Waiting for connection…"))
@@ -1351,8 +1415,7 @@ class PhoneCameraDialog(Adw.Dialog):
             hint_icon: str,
         ) -> None:
             usb_devs = [
-                d for d in devices
-                if d.transport == "usb" and d.state == "device"
+                d for d in devices if d.transport == "usb" and d.state == "device"
             ]
             self._usb_only_devices = usb_devs
             if usb_devs:
@@ -1362,41 +1425,31 @@ class PhoneCameraDialog(Adw.Dialog):
                 self._usb_device_row.set_model(model)
                 self._usb_device_row.set_selected(0)
             else:
-                self._usb_device_row.set_model(
-                    Gtk.StringList.new([_(hint)])
-                )
+                self._usb_device_row.set_model(Gtk.StringList.new([_(hint)]))
 
         def _thread() -> None:
             ScrcpyCamera.ensure_adb_server()
             devs = ScrcpyCamera.list_devices(include_unauthorized=True)
 
-            usb_auth = [
-                d for d in devs
-                if d.transport == "usb" and d.state == "device"
-            ]
+            usb_auth = [d for d in devs if d.transport == "usb" and d.state == "device"]
             if usb_auth:
                 GLib.idle_add(_on_done, devs, "", "")
                 return
 
             usb_unauth = [
-                d for d in devs
-                if d.transport == "usb" and d.state == "unauthorized"
+                d for d in devs if d.transport == "usb" and d.state == "unauthorized"
             ]
             if usb_unauth:
                 name = usb_unauth[0].model
                 hint = f"'{name}' — accept on phone"
-                GLib.idle_add(
-                    _on_done, devs, hint, "auth-fingerprint-symbolic"
-                )
+                GLib.idle_add(_on_done, devs, hint, "auth-fingerprint-symbolic")
                 return
 
             android_usb = ScrcpyCamera.detect_android_usb()
             if android_usb:
                 name = android_usb[0].get("name", "Android")
                 hint = f"'{name}' — enable USB Debugging"
-                GLib.idle_add(
-                    _on_done, devs, hint, "dialog-warning-symbolic"
-                )
+                GLib.idle_add(_on_done, devs, hint, "dialog-warning-symbolic")
                 return
 
             hint = "No device — connect USB cable"
@@ -1412,7 +1465,9 @@ class PhoneCameraDialog(Adw.Dialog):
             self._usb_inline_status.remove_css_class("dim-label")
             self._usb_inline_status.add_css_class("error")
             self._usb_inline_status.set_label(
-                _("No device found. Connect via USB cable and enable USB Debugging, then tap 'Refresh'.")
+                _(
+                    "No device found. Connect via USB cable and enable USB Debugging, then tap 'Refresh'."
+                )
             )
             self._usb_inline_status.set_visible(True)
             return
@@ -1428,25 +1483,18 @@ class PhoneCameraDialog(Adw.Dialog):
         self._usb_inline_status.set_visible(False)
 
         device = self._usb_only_devices[idx]
-        facing = (
-            "back" if self._usb_facing_row.get_selected() == 0 else "front"
-        )
+        facing = "back" if self._usb_facing_row.get_selected() == 0 else "front"
         fps_model = self._usb_fps_row.get_model()
-        fps = int(
-            fps_model.get_string(self._usb_fps_row.get_selected()) or "30"
-        )
+        fps = int(fps_model.get_string(self._usb_fps_row.get_selected()) or "30")
         br_model = self._usb_bitrate_row.get_model()
         br_label = (
-            br_model.get_string(self._usb_bitrate_row.get_selected())
-            or "16 Mbps"
+            br_model.get_string(self._usb_bitrate_row.get_selected()) or "16 Mbps"
         )
         bitrate = br_label.split()[0] + "M"
 
         res_values = [720, 1080, 1440, 1920, 0]
         res_idx = self._usb_resolution_row.get_selected()
-        max_size = (
-            res_values[res_idx] if res_idx < len(res_values) else 1080
-        )
+        max_size = res_values[res_idx] if res_idx < len(res_values) else 1080
 
         v4l2_dev = self._find_loopback_device("phone:scrcpy_usb")
         if not v4l2_dev:
@@ -1551,9 +1599,7 @@ class PhoneCameraDialog(Adw.Dialog):
                 return
             ip, port, name = devices[0]
             target = f"{ip}:{port}"
-            self._scan_row.set_subtitle(
-                _("Found: %s") % f"{name} ({target})"
-            )
+            self._scan_row.set_subtitle(_("Found: %s") % f"{name} ({target})")
             self._set_status(_("Connecting to %s…") % name)
 
             def _connect() -> None:
@@ -1687,6 +1733,7 @@ class PhoneCameraDialog(Adw.Dialog):
             if ok:
                 self._set_dot_color(0.2, 0.78, 0.35)
                 self._set_status(_("Connected to %s — starting camera…") % name)
+
                 # Refresh device list then start
                 def _refresh_and_start() -> None:
                     ScrcpyCamera.ensure_adb_server()
@@ -1700,15 +1747,11 @@ class PhoneCameraDialog(Adw.Dialog):
 
         def _do_start(devices: list) -> None:
             self._devices = devices
-            model = Gtk.StringList.new(
-                [f"{d.model} ({d.transport})" for d in devices]
-            )
+            model = Gtk.StringList.new([f"{d.model} ({d.transport})" for d in devices])
             self._device_row.set_model(model)
             if devices:
                 self._device_row.set_selected(0)
-                self._adb_wifi_btn.set_visible(
-                    devices[0].transport == "usb"
-                )
+                self._adb_wifi_btn.set_visible(devices[0].transport == "usb")
                 # Auto-start the camera
                 self._on_scrcpy_start(None)
             else:
@@ -1741,9 +1784,7 @@ class PhoneCameraDialog(Adw.Dialog):
             self._adb_wifi_btn.set_sensitive(True)
             if ok:
                 self._set_dot_color(0.2, 0.78, 0.35)
-                self._set_status(
-                    _("Wi-Fi: %s (unplug USB)") % result
-                )
+                self._set_status(_("Wi-Fi: %s (unplug USB)") % result)
                 GLib.timeout_add(1500, self._on_refresh_devices, None)
             else:
                 self._set_dot_color(0.85, 0.2, 0.2)
@@ -1754,19 +1795,13 @@ class PhoneCameraDialog(Adw.Dialog):
     def _on_refresh_devices(self, _btn: Gtk.Button | None) -> None:
         def _on_done(devices: list) -> None:
             self._devices = devices
-            model = Gtk.StringList.new(
-                [f"{d.model} ({d.transport})" for d in devices]
-            )
+            model = Gtk.StringList.new([f"{d.model} ({d.transport})" for d in devices])
             self._device_row.set_model(model)
             if devices:
                 self._device_row.set_selected(0)
-                self._adb_wifi_btn.set_visible(
-                    devices[0].transport == "usb"
-                )
+                self._adb_wifi_btn.set_visible(devices[0].transport == "usb")
             else:
-                self._device_row.set_model(
-                    Gtk.StringList.new([_("No devices found")])
-                )
+                self._device_row.set_model(Gtk.StringList.new([_("No devices found")]))
 
         def _thread() -> None:
             ScrcpyCamera.ensure_adb_server()
@@ -1797,25 +1832,16 @@ class PhoneCameraDialog(Adw.Dialog):
         self._scrcpy_inline_status.set_visible(False)
 
         device = self._devices[idx]
-        facing = (
-            "back" if self._facing_row.get_selected() == 0 else "front"
-        )
+        facing = "back" if self._facing_row.get_selected() == 0 else "front"
         fps_model = self._fps_row.get_model()
-        fps = int(
-            fps_model.get_string(self._fps_row.get_selected()) or "30"
-        )
+        fps = int(fps_model.get_string(self._fps_row.get_selected()) or "30")
         br_model = self._bitrate_row.get_model()
-        br_label = (
-            br_model.get_string(self._bitrate_row.get_selected())
-            or "16 Mbps"
-        )
+        br_label = br_model.get_string(self._bitrate_row.get_selected()) or "16 Mbps"
         bitrate = br_label.split()[0] + "M"
 
         res_values = [720, 1080, 1440, 1920, 0]
         res_idx = self._resolution_row.get_selected()
-        max_size = (
-            res_values[res_idx] if res_idx < len(res_values) else 1080
-        )
+        max_size = res_values[res_idx] if res_idx < len(res_values) else 1080
 
         v4l2_dev = self._find_loopback_device("phone:scrcpy_wifi")
         if not v4l2_dev:
@@ -1852,9 +1878,7 @@ class PhoneCameraDialog(Adw.Dialog):
         self._sync_tabs_state()
         self.emit("scrcpy-disconnected")
 
-    def _on_scrcpy_connected(
-        self, scrcpy: ScrcpyCamera, w: int, h: int
-    ) -> None:
+    def _on_scrcpy_connected(self, scrcpy: ScrcpyCamera, w: int, h: int) -> None:
         if not self._closed:
             self._set_dot_color(0.2, 0.78, 0.35)
             if scrcpy == self._scrcpy_usb:
@@ -1879,9 +1903,7 @@ class PhoneCameraDialog(Adw.Dialog):
             self._sync_tabs_state()
         self.emit("scrcpy-disconnected")
 
-    def _on_scrcpy_status_changed(
-        self, scrcpy: ScrcpyCamera, status: str
-    ) -> None:
+    def _on_scrcpy_status_changed(self, scrcpy: ScrcpyCamera, status: str) -> None:
         if self._closed:
             return
         if status == "starting":
@@ -1915,23 +1937,17 @@ class PhoneCameraDialog(Adw.Dialog):
             self._set_status(_("No v4l2loopback device"))
             return
 
-        server_name = (
-            self._airplay_name_row.get_text().strip() or "BigCam"
-        )
+        server_name = self._airplay_name_row.get_text().strip() or "BigCam"
 
         res_map = {"720p": 720, "1080p": 1080, "1440p": 1440}
         res_model = self._airplay_res_row.get_model()
         res_label = (
-            res_model.get_string(self._airplay_res_row.get_selected())
-            or "1080p"
+            res_model.get_string(self._airplay_res_row.get_selected()) or "1080p"
         )
         max_size = res_map.get(res_label, 1080)
 
         fps_model = self._airplay_fps_row.get_model()
-        fps = int(
-            fps_model.get_string(self._airplay_fps_row.get_selected())
-            or "30"
-        )
+        fps = int(fps_model.get_string(self._airplay_fps_row.get_selected()) or "30")
 
         rotate_idx = self._airplay_rotate_row.get_selected()
         rotate_map = {0: "", 1: "R", 2: "L", 3: "I"}
@@ -1956,9 +1972,7 @@ class PhoneCameraDialog(Adw.Dialog):
             else:
                 VirtualCamera.release_device("phone:airplay")
                 self._set_dot_color(0.85, 0.2, 0.2)
-                self._set_status(
-                    _("Failed to start AirPlay. Try again.")
-                )
+                self._set_status(_("Failed to start AirPlay. Try again."))
             return False
 
         GLib.timeout_add(1500, _start_delayed)
@@ -1975,18 +1989,14 @@ class PhoneCameraDialog(Adw.Dialog):
         self._sync_tabs_state()
         self.emit("airplay-disconnected")
 
-    def _on_airplay_connected(
-        self, _receiver: AirPlayReceiver, w: int, h: int
-    ) -> None:
+    def _on_airplay_connected(self, _receiver: AirPlayReceiver, w: int, h: int) -> None:
         if not self._closed:
             self._set_dot_color(0.2, 0.78, 0.35)
             self._set_status(_("AirPlay connected"))
             self._set_resolution(w, h)
         self.emit("airplay-connected", w, h)
 
-    def _on_airplay_disconnected(
-        self, _receiver: AirPlayReceiver
-    ) -> None:
+    def _on_airplay_disconnected(self, _receiver: AirPlayReceiver) -> None:
         if not self._airplay.running:
             # UxPlay process died — full cleanup
             VirtualCamera.release_device("phone:airplay")
@@ -2079,7 +2089,9 @@ class PhoneCameraDialog(Adw.Dialog):
             try:
                 result = subprocess.run(
                     ["v4l2-ctl", "-d", path, "--info"],
-                    capture_output=True, text=True, timeout=2,
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
                 )
                 if "v4l2 loopback" in result.stdout.lower():
                     return path

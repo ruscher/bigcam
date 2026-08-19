@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gi
+
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk, Gdk, Adw
@@ -10,10 +11,15 @@ from gi.repository import Gtk, Gdk, Adw
 from constants import APP_NAME, APP_ICON
 from core.event_bus import event_bus
 
+
 class SidebarController:
     """Manages the Sidebar ViewStack and Header."""
 
-    def __init__(self, split_view: Adw.OverlaySplitView, stack_pages: dict[str, tuple[Gtk.Widget, str, str]]):
+    def __init__(
+        self,
+        split_view: Adw.OverlaySplitView,
+        stack_pages: dict[str, tuple[Gtk.Widget, str, str]],
+    ):
         self._split_view = split_view
         self._sidebar_tab_btns: list[Gtk.ToggleButton] = []
         self._view_stack = Adw.ViewStack()
@@ -59,14 +65,18 @@ class SidebarController:
 
         close_sidebar_btn = Gtk.Button.new_from_icon_name("window-close-symbolic")
         close_sidebar_btn.add_css_class("flat")
-        close_sidebar_btn.connect("clicked", lambda _b: self._split_view.set_show_sidebar(False))
+        close_sidebar_btn.connect(
+            "clicked", lambda _b: self._split_view.set_show_sidebar(False)
+        )
         sidebar_header.pack_end(close_sidebar_btn)
 
         sidebar.append(sidebar_header)
         sidebar.append(self._view_stack)
 
         # Tab Bar
-        tab_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0, homogeneous=True)
+        tab_bar = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL, spacing=0, homogeneous=True
+        )
         tab_bar.add_css_class("sidebar-tab-bar")
 
         group_btn = None
@@ -102,11 +112,13 @@ class SidebarController:
         if btn.get_active():
             self._view_stack.set_visible_child_name(page_name)
 
-    def _on_sidebar_drag(self, gesture: Gtk.GestureDrag, offset_x: float, _offset_y: float) -> None:
+    def _on_sidebar_drag(
+        self, gesture: Gtk.GestureDrag, offset_x: float, _offset_y: float
+    ) -> None:
         # Simplistic drag-to-resize logic (ported from window.py)
         start_x, _ = gesture.get_start_point()
         current_width = self._split_view.get_sidebar_width_fraction()
         # Roughly convert pixel delta to fraction delta
-        delta = -(offset_x / 1000.0) 
+        delta = -(offset_x / 1000.0)
         new_width = max(0.2, min(0.5, current_width + delta))
         self._split_view.set_sidebar_width_fraction(new_width)

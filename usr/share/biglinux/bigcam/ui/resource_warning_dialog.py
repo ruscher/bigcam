@@ -92,13 +92,17 @@ def show_resource_warning(
     body_parts.append("")
     if can_disable:
         body_parts.append(
-            _("You can optimize by disabling the heaviest features, "
-              "or continue if you understand the impact.")
+            _(
+                "You can optimize by disabling the heaviest features, "
+                "or continue if you understand the impact."
+            )
         )
     else:
         body_parts.append(
-            _("No features can be disabled (active camera sources "
-              "cannot be stopped from here).")
+            _(
+                "No features can be disabled (active camera sources "
+                "cannot be stopped from here)."
+            )
         )
     body = "\n".join(body_parts)
 
@@ -117,9 +121,7 @@ def show_resource_warning(
     dialog.add_response("continue", _("I understand, continue"))
     if can_disable:
         dialog.add_response("optimize", _("Optimize (disable heavy features)"))
-        dialog.set_response_appearance(
-            "optimize", Adw.ResponseAppearance.SUGGESTED
-        )
+        dialog.set_response_appearance("optimize", Adw.ResponseAppearance.SUGGESTED)
         dialog.set_default_response("optimize")
     dialog.set_close_response("continue")
 
@@ -137,7 +139,10 @@ def show_resource_warning(
                 try:
                     feat.disable()
                     disabled_ids.append(feat.feature_id)
-                    log.info("Disabled feature '%s' to reduce resource usage", feat.feature_id)
+                    log.info(
+                        "Disabled feature '%s' to reduce resource usage",
+                        feat.feature_id,
+                    )
                 except Exception:
                     log.exception("Failed to disable feature '%s'", feat.feature_id)
             if on_optimized and disabled_ids:

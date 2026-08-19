@@ -18,7 +18,9 @@ def _user_dir(kind: str, fallback: str) -> str:
     try:
         result = subprocess.run(
             ["xdg-user-dir", kind],
-            capture_output=True, text=True, timeout=3,
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
         path = result.stdout.strip()
         if path and os.path.isabs(path):

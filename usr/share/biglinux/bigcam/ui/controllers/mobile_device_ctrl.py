@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gi
+
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import GLib
@@ -15,6 +16,7 @@ from core.camera_backend import CameraInfo
 from constants import BackendType
 from ui.phone_camera_dialog import PhoneCameraDialog
 
+
 class MobileDeviceController:
     """Manages mobile device connections and UI state."""
 
@@ -23,7 +25,7 @@ class MobileDeviceController:
         self._immersion = immersion_controller
         self._audio_monitor = audio_monitor
         self._phone_disconnect_timer = None
-        
+
         self.phone_server = PhoneCameraServer()
         self.scrcpy_usb = ScrcpyCamera()
         self.scrcpy_wifi = ScrcpyCamera()
@@ -34,19 +36,33 @@ class MobileDeviceController:
     def _setup_signals(self):
         self.phone_server.connect("connected", self._on_phone_connected)
         self.phone_server.connect("disconnected", self._on_phone_disconnected)
-        self.phone_server.connect("status-changed", lambda s, st: event_bus.emit("mobile-status-changed", "phone", st))
+        self.phone_server.connect(
+            "status-changed",
+            lambda s, st: event_bus.emit("mobile-status-changed", "phone", st),
+        )
 
-        self.scrcpy_usb.connect("status-changed", lambda c, st: event_bus.emit("mobile-status-changed", "scrcpy_usb", st))
+        self.scrcpy_usb.connect(
+            "status-changed",
+            lambda c, st: event_bus.emit("mobile-status-changed", "scrcpy_usb", st),
+        )
         self.scrcpy_usb.connect("connected", self._on_scrcpy_receiver_connected)
         self.scrcpy_usb.connect("disconnected", self._on_scrcpy_receiver_disconnected)
 
-        self.scrcpy_wifi.connect("status-changed", lambda c, st: event_bus.emit("mobile-status-changed", "scrcpy_wifi", st))
+        self.scrcpy_wifi.connect(
+            "status-changed",
+            lambda c, st: event_bus.emit("mobile-status-changed", "scrcpy_wifi", st),
+        )
         self.scrcpy_wifi.connect("connected", self._on_scrcpy_receiver_connected)
         self.scrcpy_wifi.connect("disconnected", self._on_scrcpy_receiver_disconnected)
 
-        self.airplay_receiver.connect("status-changed", lambda r, st: event_bus.emit("mobile-status-changed", "airplay", st))
+        self.airplay_receiver.connect(
+            "status-changed",
+            lambda r, st: event_bus.emit("mobile-status-changed", "airplay", st),
+        )
         self.airplay_receiver.connect("connected", self._on_airplay_receiver_connected)
-        self.airplay_receiver.connect("disconnected", self._on_airplay_receiver_disconnected)
+        self.airplay_receiver.connect(
+            "disconnected", self._on_airplay_receiver_disconnected
+        )
 
     def show_dialog(self, parent_window):
         """Shows the mobile connection dialog."""
@@ -58,7 +74,9 @@ class MobileDeviceController:
         )
         self._immersion.present_dialog(dialog, parent_window)
 
-    def _on_phone_connected(self, server: PhoneCameraServer, width: int, height: int) -> None:
+    def _on_phone_connected(
+        self, server: PhoneCameraServer, width: int, height: int
+    ) -> None:
         if self._phone_disconnect_timer:
             GLib.source_remove(self._phone_disconnect_timer)
             self._phone_disconnect_timer = None
@@ -76,6 +94,7 @@ class MobileDeviceController:
 
         if self._audio_monitor:
             from utils.i18n import _
+
             self._audio_monitor.add_external_source(
                 "phone_browser",
                 _("Phone Mic (Browser)"),
@@ -88,7 +107,9 @@ class MobileDeviceController:
     def _on_phone_disconnected(self, server: PhoneCameraServer) -> None:
         if self._phone_disconnect_timer:
             GLib.source_remove(self._phone_disconnect_timer)
-        self._phone_disconnect_timer = GLib.timeout_add_seconds(5, self._do_phone_disconnect)
+        self._phone_disconnect_timer = GLib.timeout_add_seconds(
+            5, self._do_phone_disconnect
+        )
 
     def _do_phone_disconnect(self) -> bool:
         self._phone_disconnect_timer = None
@@ -100,7 +121,9 @@ class MobileDeviceController:
             self._audio_monitor.remove_external_source("phone_browser")
         return False
 
-    def _on_scrcpy_receiver_connected(self, camera: ScrcpyCamera, width: int, height: int) -> None:
+    def _on_scrcpy_receiver_connected(
+        self, camera: ScrcpyCamera, width: int, height: int
+    ) -> None:
         device_id = camera.device_serial
         device_name = camera.model or device_id
         cam_info = CameraInfo(
@@ -121,7 +144,9 @@ class MobileDeviceController:
             self._camera_manager.remove_scrcpy_camera(device_id)
         event_bus.emit("camera-changed", None)
 
-    def _on_airplay_receiver_connected(self, receiver: AirPlayReceiver, width: int, height: int) -> None:
+    def _on_airplay_receiver_connected(
+        self, receiver: AirPlayReceiver, width: int, height: int
+    ) -> None:
         cam_info = CameraInfo(
             id="airplay:uxplay",
             name="iPhone / iPad",
@@ -137,4 +162,3 @@ class MobileDeviceController:
     def _on_airplay_receiver_disconnected(self, receiver: AirPlayReceiver) -> None:
         self._camera_manager.remove_airplay_cameras()
         event_bus.emit("camera-changed", None)
-

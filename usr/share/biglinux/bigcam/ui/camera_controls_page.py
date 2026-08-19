@@ -290,7 +290,9 @@ class CameraControlsPage(Gtk.ScrolledWindow):
             spin.set_sensitive(not readonly)
             if not readonly:
                 adj.connect("value-changed", self._on_scale_debounced, ctrl)
-            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, hexpand=True)
+            box = Gtk.Box(
+                orientation=Gtk.Orientation.HORIZONTAL, spacing=6, hexpand=True
+            )
             box.append(scale)
             box.append(spin)
             row.add_suffix(box)
@@ -355,7 +357,9 @@ class CameraControlsPage(Gtk.ScrolledWindow):
             tooltip_text=_("Delete selected profile"),
             css_classes=["flat"],
         )
-        delete_btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Delete profile")])
+        delete_btn.update_property(
+            [Gtk.AccessibleProperty.LABEL], [_("Delete profile")]
+        )
         delete_btn.connect("clicked", self._on_delete_profile)
         self._delete_profile_btn = delete_btn
 

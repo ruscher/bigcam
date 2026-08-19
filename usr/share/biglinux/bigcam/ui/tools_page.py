@@ -160,7 +160,7 @@ class ToolsPage(Gtk.ScrolledWindow):
         if self._zbar_scanner is None and _HAS_ZBAR:
             try:
                 sc = zbar.ImageScanner()
-                sc.parse_config('enable')
+                sc.parse_config("enable")
                 # Disable QR so it doesn't compete with WeChatQRCode
                 sc.set_config(zbar.Symbol.QRCODE, zbar.Config.ENABLE, 0)
                 self._zbar_scanner = sc
@@ -185,7 +185,7 @@ class ToolsPage(Gtk.ScrolledWindow):
             try:
                 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
                 h, w = gray.shape
-                zimg = zbar.Image(w, h, 'Y800', gray.tobytes())
+                zimg = zbar.Image(w, h, "Y800", gray.tobytes())
                 n = self._zbar_scanner.scan(zimg)
                 log.debug("zbar scan: %d symbols found in %dx%d frame", n, w, h)
                 for sym in zimg:
@@ -226,7 +226,9 @@ class ToolsPage(Gtk.ScrolledWindow):
             if not data:
                 h, w = frame.shape[:2]
                 if max(h, w) < 1000:
-                    upscaled = cv2.resize(frame, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+                    upscaled = cv2.resize(
+                        frame, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC
+                    )
                     data, points = self._try_detect_qr(upscaled)
                     if points is not None:
                         points = points / 2  # Scale points back

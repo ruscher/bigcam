@@ -112,7 +112,11 @@ class CameraSelector(Gtk.Box):
     def _on_cameras_changed(self, _manager: CameraManager) -> None:
         old_cam = self.selected_camera
         self._cameras = self._manager.cameras
-        log.info("_on_cameras_changed: %d cameras, old=%s", len(self._cameras), old_cam.name if old_cam else None)
+        log.info(
+            "_on_cameras_changed: %d cameras, old=%s",
+            len(self._cameras),
+            old_cam.name if old_cam else None,
+        )
 
         # Block handler completely during rebuild
         self._dropdown.handler_block(self._sig_selected)
@@ -170,7 +174,12 @@ class CameraSelector(Gtk.Box):
         idx = self._dropdown.get_selected()
         if 0 <= idx < len(self._cameras):
             cam = self._cameras[idx]
-            log.info("_process_selection: idx=%d (%s), confirmed=%s", idx, cam.name, self._confirmed_cam_id)
+            log.info(
+                "_process_selection: idx=%d (%s), confirmed=%s",
+                idx,
+                cam.name,
+                self._confirmed_cam_id,
+            )
             if cam.id != self._confirmed_cam_id:
                 self._confirmed_cam_id = cam.id
                 self.emit("camera-selected", cam)

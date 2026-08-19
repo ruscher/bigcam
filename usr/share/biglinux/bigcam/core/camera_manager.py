@@ -115,8 +115,7 @@ class CameraManager(GObject.Object):
             merge_lock = threading.Lock()
 
             backends_to_scan = [
-                b for b in self._backends
-                if b.get_backend_type() != BackendType.IP
+                b for b in self._backends if b.get_backend_type() != BackendType.IP
             ]
 
             def _detect_one(b: CameraBackend) -> list[CameraInfo]:
@@ -131,9 +130,7 @@ class CameraManager(GObject.Object):
 
             try:
                 with ThreadPoolExecutor(max_workers=total) as pool:
-                    futures = {
-                        pool.submit(_detect_one, b): b for b in backends_to_scan
-                    }
+                    futures = {pool.submit(_detect_one, b): b for b in backends_to_scan}
                     for future in as_completed(futures):
                         found = future.result()
                         with merge_lock:
@@ -150,7 +147,9 @@ class CameraManager(GObject.Object):
                                 if dup_idx >= 0:
                                     # Duplicate found — replace if new camera has higher priority
                                     existing = all_cameras[dup_idx]
-                                    existing_prio = _BACKEND_PRIORITY.get(existing.backend, 99)
+                                    existing_prio = _BACKEND_PRIORITY.get(
+                                        existing.backend, 99
+                                    )
                                     if cam_prio < existing_prio:
                                         seen_ids.discard(existing.id)
                                         seen_ids.add(cam.id)
@@ -184,7 +183,8 @@ class CameraManager(GObject.Object):
         # Preserve manually-added cameras (IP, phone) across hotplug scans
         manual_backends = {BackendType.IP, BackendType.PHONE}
         manual_cameras = [
-            c for c in self._cameras
+            c
+            for c in self._cameras
             if c.backend in manual_backends or c.id.startswith("phone:")
         ]
         seen_ids = {c.id for c in cameras}
@@ -195,7 +195,11 @@ class CameraManager(GObject.Object):
         old_ids = {c.id for c in self._cameras}
         new_ids = {c.id for c in cameras}
         self._cameras = cameras
-        changed = self._first_detection or old_ids != new_ids or getattr(self, "_force_emit", False)
+        changed = (
+            self._first_detection
+            or old_ids != new_ids
+            or getattr(self, "_force_emit", False)
+        )
         self._force_emit = False
         log.info(
             "Detection done: %d cameras, old=%s, new=%s, first=%s, emit=%s",
@@ -223,18 +227,14 @@ class CameraManager(GObject.Object):
 
     def add_phone_camera(self, camera: CameraInfo) -> None:
         """Register a phone camera source (WebRTC, scrcpy or AirPlay)."""
-        self._cameras = [
-            c for c in self._cameras if c.id != camera.id
-        ]
+        self._cameras = [c for c in self._cameras if c.id != camera.id]
         self._cameras.append(camera)
         self.emit("cameras-changed")
 
     def remove_phone_camera(self) -> None:
         """Remove phone camera from the list."""
         had = any(c.id.startswith("phone:") for c in self._cameras)
-        self._cameras = [
-            c for c in self._cameras if not c.id.startswith("phone:")
-        ]
+        self._cameras = [c for c in self._cameras if not c.id.startswith("phone:")]
         if had:
             self.emit("cameras-changed")
 
@@ -242,18 +242,14 @@ class CameraManager(GObject.Object):
         """Remove a specific scrcpy android camera from the list."""
         target_id = f"scrcpy:{device_id}"
         had = any(c.id == target_id for c in self._cameras)
-        self._cameras = [
-            c for c in self._cameras if c.id != target_id
-        ]
+        self._cameras = [c for c in self._cameras if c.id != target_id]
         if had:
             self.emit("cameras-changed")
 
     def remove_airplay_cameras(self) -> None:
         """Remove airplay iOS/macOS cameras from the list."""
         had = any(c.id.startswith("airplay:") for c in self._cameras)
-        self._cameras = [
-            c for c in self._cameras if not c.id.startswith("airplay:")
-        ]
+        self._cameras = [c for c in self._cameras if not c.id.startswith("airplay:")]
         if had:
             self.emit("cameras-changed")
 
@@ -263,6 +259,7 @@ class CameraManager(GObject.Object):
         if camera.backend == BackendType.PHONE:
             from core.camera_backend import CameraControl
             from constants import ControlCategory, ControlType
+
             vol = 100
             if "phone_server" in camera.extra:
                 vol = int(camera.extra["phone_server"]._desired_volume * 100)
@@ -311,7 +308,9 @@ class CameraManager(GObject.Object):
     # -- gstreamer proxy -----------------------------------------------------
 
     def get_gst_source(
-        self, camera: CameraInfo, fmt: VideoFormat | None = None,
+        self,
+        camera: CameraInfo,
+        fmt: VideoFormat | None = None,
         prefer_v4l2: bool = False,
     ) -> str:
         backend_type = camera.backend
@@ -342,8 +341,11 @@ class CameraManager(GObject.Object):
         """Start USB hotplug monitoring using /dev/ inotify + polling fallback."""
         # Take a baseline snapshot so the first poll doesn't false-trigger
         self._snapshot_device_state()
-        log.info("Hotplug monitoring started (poll=%dms, baseline=%s)",
-                 interval_ms, self._last_video_devs)
+        log.info(
+            "Hotplug monitoring started (poll=%dms, baseline=%s)",
+            interval_ms,
+            self._last_video_devs,
+        )
 
         # Start Gio.FileMonitor on /dev/ for instant V4L2 device detection
         if self._dev_monitor is None:
@@ -366,8 +368,10 @@ class CameraManager(GObject.Object):
                     mon.connect("changed", self._on_usb_bus_changed)
                     self._usb_bus_monitors.append(mon)
                 if self._usb_bus_monitors:
-                    log.info("Started %d USB bus monitors for gphoto2 hotplug",
-                             len(self._usb_bus_monitors))
+                    log.info(
+                        "Started %d USB bus monitors for gphoto2 hotplug",
+                        len(self._usb_bus_monitors),
+                    )
             except Exception:
                 log.warning("Failed to start USB bus monitors", exc_info=True)
 
@@ -408,6 +412,7 @@ class CameraManager(GObject.Object):
 
     def _snapshot_device_state(self) -> None:
         """Capture current USB + video device state as baseline (runs in background)."""
+
         def _do_snapshot() -> None:
             with self._poll_lock:
                 try:
@@ -418,9 +423,7 @@ class CameraManager(GObject.Object):
                 except Exception:
                     self._last_lsusb = ""
                 try:
-                    self._last_video_devs = ",".join(
-                        sorted(glob.glob("/dev/video*"))
-                    )
+                    self._last_video_devs = ",".join(sorted(glob.glob("/dev/video*")))
                 except Exception:
                     self._last_video_devs = ""
 

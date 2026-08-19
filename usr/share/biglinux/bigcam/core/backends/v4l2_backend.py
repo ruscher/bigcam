@@ -103,7 +103,11 @@ class V4L2Backend(CameraBackend):
                 timeout=5,
             )
             return True
-        except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        except (
+            FileNotFoundError,
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+        ):
             return False
 
     # -- detection -----------------------------------------------------------
@@ -358,7 +362,11 @@ class V4L2Backend(CameraBackend):
                 timeout=5,
             )
             return True
-        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        except (
+            subprocess.CalledProcessError,
+            FileNotFoundError,
+            subprocess.TimeoutExpired,
+        ):
             return False
 
     def apply_anti_flicker(self, camera: CameraInfo) -> None:
@@ -371,9 +379,16 @@ class V4L2Backend(CameraBackend):
             return
         try:
             result = subprocess.run(
-                ["v4l2-ctl", "-d", camera.device_path,
-                 "--get-ctrl", "power_line_frequency"],
-                capture_output=True, text=True, timeout=3,
+                [
+                    "v4l2-ctl",
+                    "-d",
+                    camera.device_path,
+                    "--get-ctrl",
+                    "power_line_frequency",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=3,
             )
             if result.returncode != 0:
                 return
@@ -387,8 +402,12 @@ class V4L2Backend(CameraBackend):
         freq = self._detect_power_line_freq()
         if self.set_control(camera, "power_line_frequency", freq):
             hz = "60" if freq == 2 else "50"
-            log.info("Anti-flicker: set power_line_frequency=%s (%s Hz) on %s",
-                     freq, hz, camera.device_path)
+            log.info(
+                "Anti-flicker: set power_line_frequency=%s (%s Hz) on %s",
+                freq,
+                hz,
+                camera.device_path,
+            )
 
     @staticmethod
     def _detect_power_line_freq() -> int:
@@ -417,7 +436,9 @@ class V4L2Backend(CameraBackend):
     # -- gstreamer -----------------------------------------------------------
 
     def get_gst_source(
-        self, camera: CameraInfo, fmt: VideoFormat | None = None,
+        self,
+        camera: CameraInfo,
+        fmt: VideoFormat | None = None,
         prefer_v4l2: bool = False,
     ) -> str:
         device = camera.device_path
@@ -458,9 +479,7 @@ class V4L2Backend(CameraBackend):
     ) -> str:
         """Build v4l2src element — exclusive device access (like guvcview)."""
         plf = self._detect_power_line_freq()
-        src = (
-            f"v4l2src device={device} io-mode=mmap do-timestamp=true"
-        )
+        src = f"v4l2src device={device} io-mode=mmap do-timestamp=true"
         if fmt is None:
             fmt = self._pick_best_format(camera)
         if fmt:
@@ -511,7 +530,7 @@ class V4L2Backend(CameraBackend):
         """Auto-select format: prefer MJPEG at highest resolution, cap RAW to 640x480."""
         if not camera.formats:
             return None
-            
+
         mjpeg = [
             f
             for f in camera.formats
@@ -522,25 +541,27 @@ class V4L2Backend(CameraBackend):
             for f in camera.formats
             if f.pixel_format != "MJPG" and f.fps and max(f.fps) >= 25
         ]
-        
+
         # Prefer MJPEG for lower USB bandwidth
         if mjpeg:
             mjpeg.sort(
-                key=lambda f: (f.width * f.height, max(f.fps) if f.fps else 0), reverse=True
+                key=lambda f: (f.width * f.height, max(f.fps) if f.fps else 0),
+                reverse=True,
             )
             return mjpeg[0]
-            
+
         if raw:
             # For uncompressed formats, cap at 640x480 to prevent USB 2.0 saturation
             raw_capped = [f for f in raw if f.width <= 640 and f.height <= 480]
             if not raw_capped:
                 raw_capped = raw
-                
+
             raw_capped.sort(
-                key=lambda f: (f.width * f.height, max(f.fps) if f.fps else 0), reverse=True
+                key=lambda f: (f.width * f.height, max(f.fps) if f.fps else 0),
+                reverse=True,
             )
             return raw_capped[0]
-            
+
         camera.formats.sort(
             key=lambda f: (f.width * f.height, max(f.fps) if f.fps else 0), reverse=True
         )

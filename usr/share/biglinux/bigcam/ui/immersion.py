@@ -24,9 +24,9 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Tuning constants
 # ---------------------------------------------------------------------------
-_INACTIVITY_MS = 2000       # Time before UI hides (2 s)
-_FADE_DURATION_MS = 400     # Smooth fade-out duration
-_FADE_STEPS = 10            # Discrete opacity steps during fade
+_INACTIVITY_MS = 2000  # Time before UI hides (2 s)
+_FADE_DURATION_MS = 400  # Smooth fade-out duration
+_FADE_STEPS = 10  # Discrete opacity steps during fade
 
 
 class ImmersionController:

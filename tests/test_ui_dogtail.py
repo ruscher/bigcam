@@ -13,8 +13,8 @@ try:
     from dogtail.tree import root
     from dogtail.utils import run
 except ImportError:
-    print("Skipping Dogtail test. 'python3-dogtail' is not installed.")
-    sys.exit(0)
+    import pytest
+    pytest.skip("Skipping Dogtail test: 'python3-dogtail' not installed", allow_module_level=True)
 
 def test_ui():
     print("Iniciando bigcam para teste E2E...")

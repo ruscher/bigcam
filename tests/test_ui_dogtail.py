@@ -1,17 +1,15 @@
-#!/usr/bin/env python3
 """
 E2E UI Test usando dogtail para validar o GTK Main Thread
 O app `bigcam` deve estar em execução (ou o script o iniciará).
 """
 
+import os
+import subprocess
 import sys
 import time
-import subprocess
-import os
 
 try:
     from dogtail.tree import root
-    from dogtail.utils import run
 except ImportError:
     import pytest
 
@@ -57,12 +55,12 @@ def test_ui():
                 print(f"Clicando botão: {btn.name or 'Sem Nome'}")
                 btn.click()
                 time.sleep(0.5)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print(f"Aviso ao clicar no botão {i}: {e}")
 
         print("Teste UI finalizado com sucesso. Zero deadlocks.")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Erro no teste UI: {e}")
         sys.exit(1)
     finally:

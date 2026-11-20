@@ -53,6 +53,7 @@ depends=(
     # Network / security / system
     'avahi'
     'openssl'
+    'libsecret'   # IP camera passwords in the desktop keyring
     'sudo'
     'polkit'
     'xdg-utils'

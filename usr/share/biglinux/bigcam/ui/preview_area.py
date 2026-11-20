@@ -179,6 +179,7 @@ class PreviewArea(Gtk.Overlay):
         # -- engine signals --------------------------------------------------
         self._engine.connect("state-changed", self._on_state_changed)
         self._engine.connect("error", self._on_error)
+        self._engine.connect("connection-status", self._on_connection_status)
         self._engine.connect("new-texture", self._on_new_texture)
 
     def set_mirror(self, mirror: bool) -> None:
@@ -493,6 +494,14 @@ class PreviewArea(Gtk.Overlay):
             self._fps_label.set_visible(False)
             self._stop_fps_timer()
 
+    def _on_connection_status(self, _engine: StreamEngine, state: str, message: str) -> None:
+        if state == "reconnecting":
+            self._show_loading(message or _("Reconnecting…"))
+        elif state == "connecting":
+            self._show_loading(_("Connecting to the network camera…"))
+        elif state == "auth-failed":
+            self._last_error = message
+
     def _on_error(self, _engine: StreamEngine, message: str) -> None:
         self._last_error = message
         self.notify_user(message, "error", 5000)
@@ -647,7 +656,14 @@ class PreviewArea(Gtk.Overlay):
     def _show_retry(self) -> bool:
         self._cancel_retry_timer()
         error = self._last_error
-        if error and _("Camera in use by:") in error:
+        if error in (_("The camera rejected the user name or password."),
+                     _("Wrong user name or password for this camera."),
+                     _("The camera refused the connection. Check the user name and password.")):
+            self._status.set_title(_("Wrong password"))
+            self._status.set_description(
+                _("The camera rejected the credentials. Edit the camera in the side panel "
+                  "and enter the password configured on the device."))
+        elif error and _("Camera in use by:") in error:
             self._status.set_title(_("Camera busy"))
             self._status.set_description(error)
         elif error and _("Camera is being used") in error:

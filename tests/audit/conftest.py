@@ -8,6 +8,10 @@ sys.path.insert(0, str(ROOT / "usr/share/biglinux/bigcam"))
 
 @pytest.fixture(autouse=True)
 def private_home(tmp_path, monkeypatch):
+    # Never write test passwords into the user's real Secret Service.
+    monkeypatch.setenv("BIGCAM_DISABLE_KEYRING", "1")
+    from core.ipcam.security import CredentialStore
+    monkeypatch.setattr(CredentialStore, "_instance", None)
     monkeypatch.setenv("HOME", str(tmp_path))
     for name, directory in [("XDG_CONFIG_HOME", "config"), ("XDG_CACHE_HOME", "cache"),
                             ("XDG_DATA_HOME", "data"), ("XDG_STATE_HOME", "state")]:

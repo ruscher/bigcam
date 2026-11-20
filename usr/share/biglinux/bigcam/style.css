@@ -650,3 +650,58 @@ window.bigcam overlay-split-view> :not(.shade) {
     padding: 0 4px;
 }
 
+
+/* ── IP cameras ─────────────────────────────────────────────── */
+.ptz-pad {
+  padding: 12px;
+  border-radius: 18px;
+  background: alpha(currentColor, 0.04);
+}
+.ptz-grid button {
+  min-width: 46px;
+  min-height: 46px;
+  font-size: 1.15em;
+  transition: background 120ms ease, transform 80ms ease;
+}
+.ptz-grid button:active {
+  transform: scale(0.94);
+  background: alpha(@accent_bg_color, 0.35);
+}
+.ptz-grid button:focus-visible {
+  outline: 2px solid @accent_color;
+  outline-offset: 2px;
+}
+.ptz-grid button.ptz-diagonal { opacity: 0.85; }
+.ptz-grid button.ptz-stop {
+  background: alpha(@destructive_bg_color, 0.18);
+  color: @destructive_color;
+}
+.ptz-pad:focus-visible {
+  outline: 2px solid @accent_color;
+  outline-offset: 2px;
+}
+.ipcam-chip {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.85em;
+}
+.ipcam-chip-ok { background: alpha(@success_color, 0.18); color: @success_color; }
+.ipcam-chip-auth { background: alpha(@warning_color, 0.18); color: @warning_color; }
+.ipcam-chip-off { background: alpha(currentColor, 0.08); opacity: 0.7; }
+.ipcam-preview { border-radius: 12px; background: black; }
+.ipcam-tile {
+  border-radius: 10px;
+  background: black;
+}
+.ipcam-tile-bar {
+  padding: 4px 8px;
+  margin: 6px;
+  border-radius: 8px;
+  background: alpha(black, 0.55);
+  color: white;
+}
+.ipcam-dot-on { color: #2ec27e; }
+.ipcam-dot-off { color: #e5a50a; }
+@media (prefers-reduced-motion: reduce) {
+  .ptz-grid button { transition: none; }
+}

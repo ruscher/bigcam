@@ -30,6 +30,7 @@ except ImportError:
 from constants import BackendType
 from core.camera_backend import CameraInfo, VideoFormat
 from core.backends.ip_backend import IPBackend
+from core.ipcam.security import redact
 from core.camera_manager import CameraManager
 from core.effects import EffectPipeline
 from core.virtual_camera import VirtualCamera
@@ -173,7 +174,13 @@ class StreamEngine(GObject.Object):
         "error": (GObject.SignalFlags.RUN_LAST, None, (str,)),
         "device-busy": (GObject.SignalFlags.RUN_LAST, None, (str, object)),
         "new-texture": (GObject.SignalFlags.RUN_LAST, None, (object,)),
+        # Network cameras: (state, message) with state in connecting,
+        # connected, reconnecting, auth-failed, not-found, failed.
+        "connection-status": (GObject.SignalFlags.RUN_LAST, None, (str, str)),
     }
+
+    IP_RECONNECT_MAX_DELAY = 30
+    IP_STALL_SECONDS = 10
 
     def __init__(self, camera_manager: CameraManager) -> None:
         super().__init__()
@@ -242,6 +249,13 @@ class StreamEngine(GObject.Object):
         # USB autosuspend: saved original power/control value
         self._usb_power_control_path: str = ""
         self._usb_power_control_orig: str = ""
+        # Network camera resilience
+        self._ip_reconnect_timer: int | None = None
+        self._ip_reconnect_attempt: int = 0
+        self._ip_reconnect_target: tuple | None = None
+        self._ip_watchdog_id: int | None = None
+        self._last_frame_time: float = 0.0
+        self._ip_audio_disabled: set[str] = set()
 
 
     @property
@@ -555,6 +569,10 @@ class StreamEngine(GObject.Object):
             log.debug("play(): camera %s already playing, skipping restart", camera.name)
             return True
 
+        self._cancel_ip_reconnect(reset_attempts=not (
+            self._ip_reconnect_target and self._ip_reconnect_target[0] is camera))
+        if camera.backend == BackendType.IP:
+            self.emit("connection-status", "connecting", "")
         log.info("play() called: camera=%s id=%s, bg_vcams=%s, bg_feeders=%s",
                  camera.name, camera.id,
                  list(self._bg_vcam_pipelines.keys()),
@@ -941,7 +959,7 @@ class StreamEngine(GObject.Object):
                 "queue max-size-buffers=2 leaky=downstream ! "
                 "appsink name=sink emit-signals=true drop=true max-buffers=2 sync=false")
             if self._current_camera.backend == BackendType.IP:
-                IPBackend.prepare_pipeline(pipeline)
+                self._ip_backend().prepare_pipeline(pipeline, self._current_camera)
             sink = pipeline.get_by_name("sink")
             sink.connect("new-sample", self._on_appsink_sample, generation)
             bus = pipeline.get_bus()
@@ -984,6 +1002,9 @@ class StreamEngine(GObject.Object):
         return True
 
     def stop(self, stop_backend: bool = True, keep_vcam: bool = False) -> None:
+        # Attempts survive internal stops; they reset on first frame or camera change.
+        self._cancel_ip_reconnect(reset_attempts=False)
+        self._stop_ip_watchdog()
         self._generation += 1
         self._texture_slot.clear()
         self._has_received_frame = False
@@ -1108,6 +1129,7 @@ class StreamEngine(GObject.Object):
                 return Gst.FlowReturn.OK
             h, w = bgr.shape[:2]
             self._frame_count += 1
+            self._last_frame_time = time.monotonic()
             self._distribute_processed_frame(bgr, w, h)
             self._notify_first_frame(generation)
             self._queue_texture(bgr, generation)
@@ -1431,12 +1453,18 @@ class StreamEngine(GObject.Object):
                 raise RuntimeError("No authorized virtual camera output is available")
             if camera.device_path == device:
                 raise RuntimeError("Virtual output cannot read itself")
-            source = self._manager.get_gst_source(camera, prefer_v4l2=True)
+            if camera.backend == BackendType.IP:
+                # Never play network audio from a background feeder.
+                source = self._ip_backend().get_gst_source(camera, audio=False)
+            else:
+                source = self._manager.get_gst_source(camera, prefer_v4l2=True)
             if not source:
                 raise RuntimeError("Camera has no streaming source")
             pipe = Gst.parse_launch(
                 f"{source} ! queue max-size-buffers=2 leaky=downstream ! videoconvert ! "
                 f"video/x-raw,format=YUY2 ! v4l2sink device={gst_quote(device)} sync=false")
+            if camera.backend == BackendType.IP:
+                self._ip_backend().prepare_pipeline(pipe, camera)
             if pipe.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
                 pipe.set_state(Gst.State.NULL)
                 raise RuntimeError("Background camera pipeline failed")
@@ -1651,18 +1679,25 @@ class StreamEngine(GObject.Object):
     # -- bus handling --------------------------------------------------------
 
     def _on_bus_message(self, _bus: Gst.Bus, msg: Gst.Message) -> None:
+        is_ip = self._current_camera is not None and self._current_camera.backend == BackendType.IP
         if msg.type == Gst.MessageType.EOS:
             log.info("Stream reached end-of-stream.")
+            if is_ip:
+                self._ip_handle_failure("eos", _("The camera ended the stream."))
+                return
             self.stop()
         elif msg.type == Gst.MessageType.ERROR:
             err, dbg = msg.parse_error()
             error_text = err.message if err else _("Unknown GStreamer error")
-            log.error("GStreamer error: %s (debug: %s)", error_text, dbg)
+            log.error("GStreamer error: %s (debug: %s)", redact(error_text), redact(dbg))
+            if is_ip:
+                self._ip_on_error(msg, error_text, dbg or "")
+                return
 
             # Save device_path before stop() clears _current_camera
             dev_path = (
                 self._current_camera.device_path
-                if self._current_camera
+                if self._current_camera and self._current_camera.device_path.startswith("/dev/")
                 else ""
             )
 
@@ -1716,7 +1751,135 @@ class StreamEngine(GObject.Object):
             wmsg = err.message if err else ""
             # Suppress expected leaky queue warnings
             if "descartada" not in wmsg and "dropping" not in wmsg.lower():
-                log.warning("GStreamer warning: %s", wmsg)
+                log.warning("GStreamer warning: %s", redact(wmsg))
+
+    # -- network camera resilience -------------------------------------------
+
+    def _ip_backend(self) -> IPBackend:
+        backend = self._manager.get_backend(BackendType.IP)
+        assert isinstance(backend, IPBackend)
+        return backend
+
+    def set_ip_muted(self, muted: bool) -> bool:
+        return self._ip_backend().set_muted(self._pipeline, muted)
+
+    def _ip_on_error(self, msg: Gst.Message, error_text: str, dbg: str) -> None:
+        camera = self._current_camera
+        src_path = msg.src.get_path_string() if msg.src else ""
+        if "ipaudiosink" in src_path or "audioconvert" in src_path or "volume" in src_path:
+            # No usable audio output: keep the video and retry without audio.
+            log.warning("Network camera audio output failed; continuing without audio")
+            self._ip_audio_disabled.add(camera.id)
+            cfg = self._ip_backend().config_for(camera)
+            if cfg:
+                cfg.audio = False
+            self._ip_handle_failure("audio", "", immediate=True)
+            return
+        combined = f"{error_text} {dbg}".lower()
+        if "unauthorized" in combined or "401" in combined or "forbidden" in combined:
+            self.stop()
+            self.emit("connection-status", "auth-failed", _("The camera rejected the user name or password."))
+            self.emit("error", _("Wrong user name or password for this camera."))
+            return
+        if "not found" in combined and "404" in combined:
+            self.stop()
+            self.emit("connection-status", "not-found", _("The stream path does not exist on the camera."))
+            self.emit("error", _("The camera stream was not found. Check the stream path."))
+            return
+        cfg = self._ip_backend().config_for(camera)
+        if not self._has_received_frame and cfg is not None and cfg.is_rtsp:
+            # GStreamer's message is often ambiguous (Yoosee answers a bad
+            # Digest with a 400 lacking CSeq → "Parse error").  Ask the device
+            # directly with our own RTSP probe before deciding to retry.
+            self._ip_classify_and_handle(camera, cfg, error_text)
+            return
+        self._ip_handle_failure("error", error_text)
+
+    def _ip_classify_and_handle(self, camera, cfg, error_text: str) -> None:
+        from core.ipcam import rtsp as rtsp_probe
+        fmt = self._current_fmt
+        self.stop(stop_backend=False)
+        self._current_camera, self._current_fmt = camera, fmt
+        generation = self._generation
+
+        def work():
+            return rtsp_probe.probe(cfg.host, cfg.rtsp_port, cfg.active_path, cfg.username,
+                                    cfg.password(), timeout=5, tls=cfg.scheme == "rtsps")
+
+        def done(result):
+            if generation != self._generation or self._current_camera is not camera:
+                return
+            if result.status in (rtsp_probe.AUTH_FAILED, rtsp_probe.AUTH_REQUIRED):
+                self._current_camera = None
+                self.emit("connection-status", "auth-failed",
+                          _("The camera rejected the user name or password."))
+                self.emit("error", _("Wrong user name or password for this camera."))
+            elif result.status == rtsp_probe.NOT_FOUND:
+                self._current_camera = None
+                self.emit("connection-status", "not-found", _("The stream path does not exist on the camera."))
+                self.emit("error", _("The camera stream was not found. Check the stream path."))
+            else:
+                self._ip_handle_failure("error", error_text)
+
+        run_async(work, on_success=done, on_error=lambda _e: done(type("R", (), {"status": "error"})()))
+
+    def _ip_handle_failure(self, reason: str, message: str, immediate: bool = False) -> None:
+        camera, fmt = self._current_camera, self._current_fmt
+        if camera is None:
+            return
+        self._ip_reconnect_attempt += 1
+        attempt = self._ip_reconnect_attempt
+        delay = 0 if immediate else min(self.IP_RECONNECT_MAX_DELAY, 2 ** min(attempt - 1, 5))
+        self.stop(stop_backend=False)
+        self._ip_reconnect_target = (camera, fmt)
+        log.info("Network camera %s lost (%s); reconnect attempt %d in %ds",
+                 camera.id, reason, attempt, delay)
+        if not immediate:
+            self.emit("connection-status", "reconnecting",
+                      _("Connection lost. Reconnecting in {seconds}s (attempt {n})…").format(
+                          seconds=delay, n=attempt))
+        self._ip_reconnect_timer = GLib.timeout_add(max(50, delay * 1000), self._ip_reconnect_fire)
+
+    def _ip_reconnect_fire(self) -> bool:
+        self._ip_reconnect_timer = None
+        target = self._ip_reconnect_target
+        if target is None or self._current_camera is not None:
+            return GLib.SOURCE_REMOVE
+        camera, fmt = target
+        if not any(c.id == camera.id for c in self._manager.cameras):
+            self._ip_reconnect_target = None
+            return GLib.SOURCE_REMOVE
+        self.play(camera, fmt)
+        return GLib.SOURCE_REMOVE
+
+    def _cancel_ip_reconnect(self, reset_attempts: bool = True) -> None:
+        if self._ip_reconnect_timer is not None:
+            GLib.source_remove(self._ip_reconnect_timer)
+            self._ip_reconnect_timer = None
+        self._ip_reconnect_target = None
+        if reset_attempts:
+            self._ip_reconnect_attempt = 0
+
+    def _start_ip_watchdog(self) -> None:
+        self._stop_ip_watchdog()
+        self._last_frame_time = time.monotonic()
+        self._ip_watchdog_id = GLib.timeout_add_seconds(2, self._ip_watchdog_tick)
+
+    def _stop_ip_watchdog(self) -> None:
+        if self._ip_watchdog_id is not None:
+            GLib.source_remove(self._ip_watchdog_id)
+            self._ip_watchdog_id = None
+
+    def _ip_watchdog_tick(self) -> bool:
+        camera = self._current_camera
+        if camera is None or camera.backend != BackendType.IP:
+            self._ip_watchdog_id = None
+            return GLib.SOURCE_REMOVE
+        if time.monotonic() - self._last_frame_time > self.IP_STALL_SECONDS:
+            self._ip_watchdog_id = None
+            self._ip_handle_failure("stall", _("No video received."))
+            return GLib.SOURCE_REMOVE
+        return GLib.SOURCE_CONTINUE
 
     def _try_pw_fallback(self) -> bool:
         """If the current pipeline uses pipewiresrc, retry with v4l2src.
@@ -1803,6 +1966,10 @@ class StreamEngine(GObject.Object):
         def announce():
             if generation == self._generation and self._current_camera is not None:
                 self.emit("state-changed", "playing")
+                if self._current_camera.backend == BackendType.IP:
+                    self._ip_reconnect_attempt = 0
+                    self._start_ip_watchdog()
+                    self.emit("connection-status", "connected", "")
                 self._resolve_vcam_async()
             return GLib.SOURCE_REMOVE
         GLib.idle_add(announce)

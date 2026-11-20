@@ -2,7 +2,7 @@
   <img src="usr/share/biglinux/bigcam/icons/bigcam.svg" alt="BigCam" width="128" height="128">
 </p>
 
-<h1 align="center">BigCam 4.5.0</h1>
+<h1 align="center">BigCam 4.6.0</h1>
 
 <p align="center">
   <b>The universal webcam control center for Linux — use any camera, including your smartphone, as a professional webcam. No expensive apps needed.</b>
@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-4.5.0-brightgreen.svg" alt="Version 4.5.0">
+  <img src="https://img.shields.io/badge/Version-4.6.0-brightgreen.svg" alt="Version 4.6.0">
   <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3">
   <img src="https://img.shields.io/badge/Platform-Linux-green.svg" alt="Platform: Linux">
   <img src="https://img.shields.io/badge/GTK-4.0-blue.svg" alt="GTK 4.0">
@@ -72,7 +72,7 @@
 - **Smile Capture removed**: Removed mediapipe-dependent smile detection feature entirely (code, README, translations).
 - **i18n verified**: All UI strings confirmed English and translation-ready across 29 languages.
 
-**Version 4.5.0** (current) is the **detection speed & streaming protocol update**:
+**Version 4.5.0** is the **detection speed & streaming protocol update**:
 
 - **Parallel camera detection**: All backends (V4L2, GPhoto2, Libcamera, PipeWire) now detect cameras in parallel using `ThreadPoolExecutor`, with incremental result emission — cameras appear as they are found instead of waiting for all backends.
 - **Backend priority**: Duplicate cameras are resolved by backend priority (V4L2 > GPhoto2 > Libcamera > PipeWire), keeping the best backend when the same device is detected by multiple backends.
@@ -124,6 +124,17 @@ We are grateful to Rafael and Barnabé for starting this journey.
 Technical details: `docs/IP_CAMERA_*.md`.
 
 ---
+
+## What's New in 4.6.0
+
+### IP Cameras (ONVIF / RTSP / Yoosee)
+A complete network-camera subsystem: automatic discovery (ONVIF WS-Discovery + bounded LAN probe), an add/edit assistant with connection test and live preview, passwords stored in the desktop keyring (libsecret), physical PTZ with guaranteed stop and presets, night vision (ONVIF IR-cut), ONVIF events and local motion detection, surveillance recording without re-encoding (continuous / on motion / scheduled), a 2×2 camera wall and an event history. Automatic reconnection with backoff and precise error reporting (wrong password, unknown stream path, unreachable). Unsupported features are shown with the reason, never simulated. See the **IP Cameras** section above and `docs/IP_CAMERA_*.md`.
+
+### Performance
+BGRA→BGR frame conversion is ~60× faster (also benefits gPhoto2/DSLR pipelines).
+
+### Collaboration
+This release includes contributions from **Leandro Silva**.
 
 ## What's New in 4.5.0
 
@@ -889,6 +900,9 @@ BigCam is part of the [BigLinux](https://www.biglinux.com.br/) ecosystem.
 **Original creators:**
 - **Rafael Ruscher** ([@ruscher](https://github.com/ruscher))
 - **Barnabé di Kartola**
+
+**Collaboration:**
+- **Leandro Silva** <leandroruizbrabo@ig.com>
 
 Contributions are welcome! Please open an issue or pull request on [GitHub](https://github.com/biglinux/bigcam).
 

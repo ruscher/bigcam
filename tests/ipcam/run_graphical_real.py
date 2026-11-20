@@ -80,6 +80,13 @@ def check(name, value):
     print("CHECK", name, value, flush=True)
 
 
+# Isolation: this test must never open the host's local cameras (they may be
+# in use by someone else). Only IP cameras are visible to the app here.
+from core.backends import gphoto2_backend, libcamera_backend, pipewire_backend, v4l2_backend  # noqa: E402
+for _cls in (v4l2_backend.V4L2Backend, pipewire_backend.PipeWireBackend,
+             libcamera_backend.LibcameraBackend, gphoto2_backend.GPhoto2Backend):
+    _cls.detect_cameras = lambda self: []
+
 win = None
 try:
     from main import BigDigicamApp

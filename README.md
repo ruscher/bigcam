@@ -110,6 +110,21 @@ We are grateful to Rafael and Barnabé for starting this journey.
 
 ---
 
+## IP Cameras (ONVIF / RTSP / HTTP)
+
+- **Add a camera**: Menu → *Add IP Camera…* → *Find automatically* (ONVIF WS-Discovery plus a bounded probe of your local network, or type an address/network) or *Add manually* (address, protocol, ports, user, password, optional full URL). *Test Connection* shows a live preview and which features the device really supports.
+- **Passwords** are stored in the desktop keyring (libsecret), never in the settings file. Old entries with `user:password@` URLs are migrated automatically.
+- **Side panel** for the selected IP camera: physical PTZ (hold-to-move, guaranteed stop), presets, main/secondary stream, TCP/UDP, camera microphone, night vision (ONVIF IR-cut), alarm outputs, alerts, surveillance recording and device info. Unsupported features are shown with the reason, never simulated.
+- **Resilience**: automatic reconnection with exponential backoff, stall watchdog, precise errors (wrong password, unknown stream path, unreachable).
+- **Alerts**: native ONVIF events or local motion detection (clearly labelled), desktop notifications, event snapshots and history.
+- **Surveillance recording** without re-encoding (continuous, on motion or scheduled), segmented MKV files per camera and date, retention in days, low-disk protection.
+- **Camera wall**: Menu → *IP Camera Wall* (2×2 per page, secondary streams).
+- **Yoosee**: use user `admin` and the password set in the Yoosee app under *Settings → NVR connection*. Light, siren, talk-back and memory-card playback have no documented local API.
+
+Technical details: `docs/IP_CAMERA_*.md`.
+
+---
+
 ## What's New in 4.5.0
 
 ### Detection Speed

@@ -61,6 +61,9 @@ class CameraControlsPage(Gtk.ScrolledWindow):
         self._generation = 0
         self._commands = LatestCommands()
         self._fetch_task = None
+        # Set by the window: builds the network-camera panel (PTZ, alerts…).
+        self.ip_panel_factory = None
+        self._ip_panel = None
 
         # Auto-controls that disable their dependent manual controls.
         # Key = auto control ID, value = (dependent IDs, disable-when values).
@@ -155,6 +158,9 @@ class CameraControlsPage(Gtk.ScrolledWindow):
                                      on_success=done, on_error=failed)
 
     def _clear_content(self) -> None:
+        if self._ip_panel is not None:
+            self._ip_panel.dispose_panel()  # stops any PTZ movement
+            self._ip_panel = None
         child = self._content.get_first_child()
         while child:
             next_child = child.get_next_sibling()
@@ -169,8 +175,14 @@ class CameraControlsPage(Gtk.ScrolledWindow):
     # -- build UI from controls list -----------------------------------------
 
     def _populate(self, controls: list[CameraControl]) -> None:
+        from constants import BackendType
+        if self._camera and self._camera.backend == BackendType.IP and self.ip_panel_factory:
+            self._ip_panel = self.ip_panel_factory(self._camera)
+            if self._ip_panel is not None:
+                self._content.append(self._ip_panel)
+                if not controls:
+                    return
         if not controls:
-            from constants import BackendType
 
             if self._camera and self._camera.backend == BackendType.PHONE:
                 empty = Adw.StatusPage(

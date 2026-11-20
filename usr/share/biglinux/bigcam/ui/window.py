@@ -32,7 +32,7 @@ from ui.video_gallery import VideoGallery
 from ui.settings_page import SettingsPage
 from ui.effects_page import EffectsPage
 from ui.immersion import ImmersionController
-from ui.ip_camera_dialog import IPCameraDialog
+from ui.ip_camera_controller import IPCameraController
 from ui.phone_camera_dialog import PhoneCameraDialog
 from ui.controllers.sidebar_ctrl import SidebarController
 from ui.controllers.mobile_device_ctrl import MobileDeviceController
@@ -113,9 +113,10 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._setup_resource_monitor()
 
         # Initial camera detection
-        ip_cameras = self._settings.get("ip_cameras")
-        if ip_cameras:
-            GLib.idle_add(self._camera_manager.add_ip_cameras, ip_cameras)
+        # IP cameras: settings without secrets, passwords in the keyring.
+        self._ipcam = IPCameraController(self)
+        self._controls_page.ip_panel_factory = self._ipcam.make_panel
+        self._ipcam.load()
         GLib.idle_add(self._camera_manager.detect_cameras_async)
         GLib.idle_add(self._update_last_photo_thumbnail)
 
@@ -1047,6 +1048,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
 
         section3 = Gio.Menu()
         section3.append(_("Add IP Camera…"), "win.add-ip")
+        section3.append(_("IP Camera Wall"), "win.ip-wall")
+        section3.append(_("IP Camera Events"), "win.ip-events")
         section3.append(_("Phone as Webcam…"), "win.phone-camera")
         section3.append(_("Refresh") + " (F5)", "win.refresh")
         section3.append(_("Welcome Screen"), "win.show-welcome")
@@ -1064,6 +1067,8 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         simple_actions = {
             "refresh": self._on_refresh,
             "add-ip": self._on_add_ip,
+            "ip-wall": lambda *_a: self._ipcam.show_wall(),
+            "ip-events": lambda *_a: self._ipcam.show_events(),
             "phone-camera": self._on_phone_camera,
             "about": self._on_about,
             "capture": self._on_capture_action,
@@ -1815,9 +1820,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._camera_manager.detect_cameras_async(force_emit=True)
 
     def _on_add_ip(self, *_args) -> None:
-        dialog = IPCameraDialog()
-        dialog.connect("camera-added", self._on_ip_camera_added)
-        self._immersion.present_dialog(dialog, self)
+        self._ipcam.add()
 
     def _draw_phone_dot(self, area: Gtk.DrawingArea, cr, w: int, h: int) -> None:
         """Draw a colored status dot on the phone button."""
@@ -1915,13 +1918,14 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             self._toast_overlay.add_toast(toast)
 
 
-    def _on_ip_camera_added(self, _dialog: IPCameraDialog, name: str, url: str) -> None:
-        ip_list = self._settings.get("ip_cameras")
-        if not isinstance(ip_list, list):
-            ip_list = list(ip_list) if ip_list else []
-        ip_list.append({"name": name, "url": url})
-        self._settings.set("ip_cameras", ip_list)
-        self._camera_manager.add_ip_cameras(ip_list)
+    def _on_ip_camera_added(self, _dialog, name: str, url: str) -> None:
+        """Compatibility entry point (name + URL): routed through the secure flow."""
+        from core.ipcam.models import IPCameraConfig
+        from core.ipcam.security import CredentialStore
+        cfg, password = IPCameraConfig.from_url(url, name)
+        if password:
+            CredentialStore.instance().store(cfg.id, password, cfg.name)
+        self._ipcam._saved(cfg, new=True)
 
     def _on_about(self, *_args) -> None:
         from ui.about_dialog import create_about_dialog
@@ -2379,6 +2383,11 @@ class BigDigicamWindow(Adw.ApplicationWindow):
             if label not in active_names:
                 active_names.append(label)
 
+        for name in self._ipcam.surveillance_active:
+            label = _("IP surveillance: {name}").format(name=name)
+            if label not in active_names:
+                active_names.append(label)
+
         has_active = bool(active_names) or self._stream_engine.has_active_bg_vcams() or self._video_recorder.is_recording or self._video_recorder.is_finalizing
 
         if has_active:
@@ -2445,6 +2454,7 @@ class BigDigicamWindow(Adw.ApplicationWindow):
         self._video_gallery.cleanup()
         self._immersion.cleanup()
         self._resource_monitor.stop()
+        self._ipcam.shutdown()
         self._video_recorder.stop()
         self._audio_monitor.stop_all()
         self._camera_manager.close()

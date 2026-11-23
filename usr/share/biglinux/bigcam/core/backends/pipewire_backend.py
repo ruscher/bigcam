@@ -12,6 +12,9 @@ from typing import Any
 from constants import BackendType
 from core.camera_backend import CameraBackend, CameraControl, CameraInfo, VideoFormat
 
+# Substrings that identify screen-capture streams in node.name / media.name.
+_SCREENCAST_MARKERS = ("screencast", "screen-cast", "screen_cast")
+
 
 class PipeWireBackend(CameraBackend):
     """Backend for PipeWire video source nodes."""
@@ -53,7 +56,32 @@ class PipeWireBackend(CameraBackend):
         # Skip real V4L2 hardware cameras — the V4L2 backend handles those
         if props.get("api.v4l2.path") or props.get("device.api") == "v4l2":
             return False
+        # Skip screen-sharing streams: they are Video/Source too, but they
+        # are not cameras and they fail to negotiate in the preview pipeline.
+        if PipeWireBackend._is_screencast(props):
+            return False
         return True
+
+    @staticmethod
+    def _is_screencast(props: dict[str, Any]) -> bool:
+        """Return True for screen-capture nodes (xdg-desktop-portal, compositors).
+
+        Examples: xdg-desktop-portal-wlr creates ``node.name =
+        xdg-desktop-portal-wlr`` / ``media.name = xdpw-stream-*`` while OBS
+        or a browser shares the screen; GNOME and KDE name theirs with
+        "screen-cast"/"screencast".
+        """
+        if str(props.get("media.role", "")).lower() == "screen":
+            return True
+        node_name = str(props.get("node.name", "")).lower()
+        media_name = str(props.get("media.name", "")).lower()
+        if node_name.startswith("xdg-desktop-portal") or media_name.startswith("xdpw-stream"):
+            return True
+        return any(
+            marker in name
+            for name in (node_name, media_name)
+            for marker in _SCREENCAST_MARKERS
+        )
 
     @staticmethod
     def _make_camera(node_id: str, props: dict[str, str]) -> CameraInfo:

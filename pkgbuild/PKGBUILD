@@ -63,7 +63,7 @@ depends=(
     'usbutils'
 )
 epoch=1
-pkgver=4.6.0
+pkgver=4.6.1
 pkgrel=1
 arch=('any')
 license=('GPL3')

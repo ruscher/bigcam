@@ -2,7 +2,7 @@
   <img src="usr/share/biglinux/bigcam/icons/bigcam.svg" alt="BigCam" width="128" height="128">
 </p>
 
-<h1 align="center">BigCam 4.6.0</h1>
+<h1 align="center">BigCam 4.6.1</h1>
 
 <p align="center">
   <b>The universal webcam control center for Linux — use any camera, including your smartphone, as a professional webcam. No expensive apps needed.</b>
@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-4.6.0-brightgreen.svg" alt="Version 4.6.0">
+  <img src="https://img.shields.io/badge/Version-4.6.1-brightgreen.svg" alt="Version 4.6.1">
   <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3">
   <img src="https://img.shields.io/badge/Platform-Linux-green.svg" alt="Platform: Linux">
   <img src="https://img.shields.io/badge/GTK-4.0-blue.svg" alt="GTK 4.0">
@@ -124,6 +124,11 @@ We are grateful to Rafael and Barnabé for starting this journey.
 Technical details: `docs/IP_CAMERA_*.md`.
 
 ---
+
+## What's New in 4.6.1
+
+### Fix: screen sharing no longer shows up as a camera
+While OBS, a browser or any other app shares the screen, the desktop portal (for example `xdg-desktop-portal-wlr`) creates a PipeWire `Video/Source` node. BigCam listed it as a camera, could remember it as the last camera used and open it automatically on the next start. The preview then failed, and the real camera (for example a DSLR via gPhoto2) never started. Screen-capture nodes are now ignored: portal streams, nodes with `media.role=Screen` and GNOME/KDE screencast streams. PipeWire virtual cameras (such as the OBS Virtual Camera) are still listed.
 
 ## What's New in 4.6.0
 
